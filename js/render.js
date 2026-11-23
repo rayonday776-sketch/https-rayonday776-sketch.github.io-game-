@@ -337,6 +337,7 @@ export class Renderer {
     }
     // icônes
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.drawArmies(ctx, s);
     const labels = [];
     for (const c of visible) {
       const [x, y] = this.toScreen(c.x + 0.5, c.y + 0.5);
@@ -408,6 +409,50 @@ export class Renderer {
     drawCompass(ctx, w - 70, h - 110);
   }
 }
+
+Renderer.prototype.drawArmies = function (ctx, s) {
+  const wd = this.world;
+  // batailles récentes : épées croisées qui s'estompent
+  for (const b of wd.battles || []) {
+    const age = (wd.day - b.t) / 360;
+    if (age > 1.5) continue;
+    const [x, y] = this.toScreen(b.x, b.y);
+    ctx.globalAlpha = Math.max(0, 1 - age / 1.5);
+    ctx.font = '18px serif'; ctx.textAlign = 'center';
+    haloText(ctx, '⚔', x, y + 6, 'rgb(120,20,15)', 'rgba(250,240,220,0.9)');
+    ctx.globalAlpha = 1;
+  }
+  for (const w of wd.wars) for (const side of ['a', 'b']) {
+    const u = w.units[side];
+    if (!u.path) continue;
+    const n = wd.nations[u.nation], p = wd.unitXY(u);
+    if (!p) continue;
+    const mine = u.nation === wd.player;
+    // trajet prévu
+    if (u.state === 'march' && (mine || s > 6)) {
+      ctx.beginPath();
+      const k0 = Math.floor(u.pos);
+      const [sx, sy] = this.toScreen(p[0], p[1]); ctx.moveTo(sx, sy);
+      for (let k = k0 + 1; k < u.path.length; k += 1) { const i = u.path[k]; const [x, y] = this.toScreen(i % wd.W + 0.5, ((i / wd.W) | 0) + 0.5); ctx.lineTo(x, y); }
+      ctx.strokeStyle = `rgba(${n.color[0] * 0.6 | 0},${n.color[1] * 0.6 | 0},${n.color[2] * 0.6 | 0},0.8)`; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    const [x, y] = this.toScreen(p[0], p[1]);
+    const size = 7 + Math.min(10, Math.log10(1 + n.army * 10) * 2);
+    // siège : cercle pulsant autour de la ville
+    if (u.state === 'siege') {
+      const t = wd.cities[u.target];
+      if (t) { const [tx, ty] = this.toScreen(t.x + 0.5, t.y + 0.5); ctx.strokeStyle = 'rgba(160,20,10,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tx, ty, 14 + Math.sin(performance.now() / 200) * 3, 0, Math.PI * 2); ctx.stroke(); }
+    }
+    // étendard
+    ctx.strokeStyle = 'rgb(40,28,18)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, y + size * 0.6); ctx.lineTo(x, y - size * 1.4); ctx.stroke();
+    const wave = Math.sin(performance.now() / 250 + u.nation) * 2;
+    ctx.beginPath(); ctx.moveTo(x, y - size * 1.4); ctx.quadraticCurveTo(x + size * 0.7, y - size * 1.4 + wave, x + size * 1.4, y - size * 1.2); ctx.lineTo(x + size * 1.4, y - size * 0.4); ctx.quadraticCurveTo(x + size * 0.7, y - size * 0.6 + wave, x, y - size * 0.6); ctx.closePath();
+    ctx.fillStyle = rgb(n.color); ctx.fill(); ctx.lineWidth = mine ? 2 : 1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y + size * 0.6, 3, 0, Math.PI * 2); ctx.fillStyle = 'rgb(40,28,18)'; ctx.fill();
+    if (s > 5) { ctx.font = '11px Georgia, serif'; ctx.textAlign = 'left'; haloText(ctx, `${Math.round(n.army * 10).toLocaleString('fr')}`, x + size * 1.6, y - size * 0.7, 'rgb(40,28,18)', 'rgba(244,232,204,0.85)'); }
+  }
+};
 
 function haloText(ctx, t, x, y, fg, bg) {
   ctx.lineWidth = 3.5; ctx.strokeStyle = bg; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y);

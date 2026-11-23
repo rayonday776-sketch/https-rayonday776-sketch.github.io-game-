@@ -94,11 +94,17 @@ Rendu (`js/render.js`) : fond peint une fois à 8 px par case (couleurs interpol
 
 **Prototype (fait)** : génération du continent, simulation complète de l'Antiquité à l'ère moderne, rendu carte ancienne, zoom ville, portraits animés, gazette, actions de base du joueur.
 
+**Version 0.2 (fait)** :
+- Frontières cohérentes : les terres tenues coûtent moins cher à garder et plus cher à prendre, les fleuves font frontière, lissage, suppression des enclaves ; une ville conquise emporte ses terres ; une poche isolée finit par se rallier à la nation qui l'entoure.
+- Armées visibles : étendards qui marchent le long du relief, trajet prévu en pointillés, batailles (⚔ sur la carte), sièges, repos après une prise.
+- Cour de 4 conseillers à portrait (chancelier, maréchal, argentier, prêtre ; titres modernisés à l'ère industrielle).
+- 12 dilemmes à choix présentés par le conseiller concerné (famine, émeutes, prophète, guerre, comptoir, mariage, grève, expédition…), consignés dans la gazette.
+
 **Prochaines étapes proposées :**
 
-1. **Armées visibles** : pions qui marchent sur les routes, batailles sur la carte, sièges animés.
-2. **Événements à choix** (façon *To All Ends*) : dilemmes avec portrait du conseiller et 2 à 3 options.
-3. **Conseillers et cour** : personnages secondaires avec portraits, complots, mariages dynastiques.
+1. Complots et ambitions des conseillers ; mariages et héritiers visibles.
+2. Porter les systèmes d'EcoPol 2.3 (banque centrale, entreprises, bourse, cycles économiques, religion).
+3. Diriger soi-même ses armées (choisir la cible).
 4. **Ville vivante** : plans plus organiques (Voronoï), monuments uniques, quartiers nommés selon l'histoire (« Quartier de la Victoire de 312 »).
 5. **Commerce maritime visible** : navires sur les routes commerciales.
 6. **Religions et cultures** : diffusion sur la carte, conversions, schismes.

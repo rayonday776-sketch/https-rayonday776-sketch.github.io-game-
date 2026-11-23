@@ -124,7 +124,22 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
 .paper.moderne .headline { font-family: Oswald, sans-serif; font-size: 40px; text-align: left; }
 .paper.moderne h3 { font-family: Oswald, sans-serif; }
 
+/* ---------- Dilemmes ---------- */
+.choiceCard { display: flex; gap: 20px; background: var(--panel); border: 3px double var(--ink2); padding: 20px; max-width: min(720px, 94vw); box-shadow: 0 10px 40px rgba(40,20,0,.5); animation: rise .35s ease-out; }
+@keyframes rise { from { transform: translateY(20px); opacity: 0; } }
+.advisor { flex: none; text-align: center; }
+.advisor canvas { width: 160px; height: 200px; }
+#advName { font-size: 13px; font-style: italic; max-width: 160px; }
+.choiceBody h2 { font-family: Cinzel, serif; margin: 0 0 8px; font-size: 22px; }
+.choiceBody p { font-size: 17px; line-height: 1.4; margin: 0 0 14px; }
+#chOpts { display: flex; flex-direction: column; gap: 8px; }
+#chOpts button { text-align: left; font-size: 16px; padding: 7px 12px; }
+#chOpts small { display: block; color: var(--ink2); font-size: 12.5px; font-style: italic; }
+.court { display: grid; grid-template-columns: 1fr; gap: 2px; font-size: 13px; }
+.court b { font-weight: normal; color: var(--ink2); }
+
 @media (max-width: 760px) {
+  .choiceCard { flex-direction: column; align-items: center; }
   .brand { display: none; }
   .stats { font-size: 12px; gap: 8px; margin-left: 0; }
   .panel { width: calc(100vw - 32px); left: 16px !important; right: 16px !important; top: auto; bottom: 64px; max-height: 45vh; }
@@ -179,6 +194,13 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     <p id="introMsg">Génération du continent…</p>
     <div class="row"><label>Graine du monde <input id="seed" type="number"></label><button id="regen" class="btn">Regénérer</button></div>
     <p class="hint">Molette / pincement : zoom · Glisser : déplacer · Cliquez une nation pour la gouverner.</p>
+  </div>
+</div>
+
+<div id="choice" class="overlay" hidden>
+  <div class="choiceCard">
+    <div class="advisor"><canvas id="advisor" width="200" height="250"></canvas><div id="advName"></div></div>
+    <div class="choiceBody"><h2 id="chTitle"></h2><p id="chText"></p><div id="chOpts"></div></div>
   </div>
 </div>
 
@@ -542,7 +564,12 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     let k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
     return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
   }
-  var fmtYear = (y) => y < 0 ? `${-y} av. J.-C.` : `${y}`, MONTHS = ["janvier", "f\xE9vrier", "mars", "avril", "mai", "juin", "juillet", "ao\xFBt", "septembre", "octobre", "novembre", "d\xE9cembre"], World = class {
+  var COURT_ROLES = ["chancelier", "marechal", "argentier", "pretre"], COURT_TITLES = {
+    chancelier: ["Chancelier", "Premier ministre"],
+    marechal: ["Mar\xE9chal", "Chef d'\xE9tat-major"],
+    argentier: ["Grand argentier", "Ministre des Finances"],
+    pretre: ["Grand pr\xEAtre", "Archev\xEAque"]
+  }, fmtYear = (y) => y < 0 ? `${-y} av. J.-C.` : `${y}`, MONTHS = ["janvier", "f\xE9vrier", "mars", "avril", "mai", "juin", "juillet", "ao\xFBt", "septembre", "octobre", "novembre", "d\xE9cembre"], World = class {
     constructor(seed) {
       this.seed = seed, this.rng = new RNG(seed * 7 + 3), this.T = generateTerrain(seed);
       let { W, H } = this.T;
@@ -617,6 +644,18 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
       };
       return REGIMES[n.regime].hered && (n.names = n.names || {}, n.names[name] = (n.names[name] || 0) + 1, L.ordinal = n.names[name]), L;
     }
+    makePerson(n, female) {
+      let r = this.rng, keys = Object.keys(TRAITS), traits = [];
+      for (; traits.length < 2; ) {
+        let t = r.pick(keys);
+        traits.includes(t) || traits.push(t);
+      }
+      return female = female ?? r.chance(0.25), { name: personName(n.culture, r, female), female, age: r.int(28, 60), traits, dynasty: dynastyName(n.culture, r), seed: r.int(1, 1e9), since: this.year };
+    }
+    courtTitle(role, era, female) {
+      let t = COURT_TITLES[role][era >= 4 ? 1 : 0];
+      return female ? t.replace(/^Grand /, "Grande ").replace(/ier$/, "i\xE8re").replace(/^Chancelier/, "Chanceli\xE8re") : t;
+    }
     leaderTitle(n) {
       let L = n.leader, t = REGIMES[n.regime].titles[L.female ? 1 : 0];
       return n.regime === "R\xE9publique" && n.era >= 3 ? L.female ? "Pr\xE9sidente" : "Pr\xE9sident" : t;
@@ -653,7 +692,7 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         income: 0,
         expense: 0
       };
-      return this.nations.push(n), n.leader = this.makeLeader(n), capital.nation = id, n;
+      return this.nations.push(n), n.leader = this.makeLeader(n), n.court = COURT_ROLES.map((role) => ({ role, L: this.makePerson(n) })), capital.nation = id, n;
     }
     createCity(x, y, nationId, pop, culture) {
       let r = this.rng, i = this.idx(x, y), c = {
@@ -788,12 +827,15 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     }
     cityReach(c) {
       let n = this.nations[c.nation];
-      return 4 + Math.log10(Math.max(100, c.pop)) * 2.4 + (n ? n.era : 0) * 0.9;
+      return 6 + Math.log10(Math.max(100, c.pop)) * 3 + (n ? n.era : 0) * 1.4;
     }
+    // Territoire : chaque ville rayonne selon sa taille ; les terres déjà tenues coûtent moins cher à garder
+    // et plus cher à prendre (frontières stables qui ne bougent que sous pression), les fleuves et
+    // montagnes font frontière, puis lissage et suppression des enclaves sans ville.
     updateTerritory() {
-      let { W, H } = this, T = this.T, N = W * H, dist = new Float32Array(N).fill(1 / 0), raw = new Float32Array(N), own = new Int32Array(N).fill(-1), heap = new Heap(), alive = this.cities.filter((c) => c.alive), str = [], reach = [];
+      let { W, H } = this, T = this.T, N = W * H, prev = this.cellNation, dist = new Float32Array(N).fill(1 / 0), raw = new Float32Array(N), own = new Int32Array(N).fill(-1), heap = new Heap(), alive = this.cities.filter((c) => c.alive), str = [], reach = [], nat = [], cityCell = new Uint8Array(N);
       for (let c of alive)
-        str[c.id] = this.cityStrength(c), reach[c.id] = this.cityReach(c), dist[c.i] = 0, own[c.i] = c.id, heap.push(0, c.i);
+        str[c.id] = this.cityStrength(c), reach[c.id] = this.cityReach(c), nat[c.id] = c.nation, dist[c.i] = 0, own[c.i] = c.id, heap.push(0, c.i), cityCell[c.i] = 1;
       for (; heap.size; ) {
         let c = heap.pop(), d = heap.lastKey;
         if (d > dist[c]) continue;
@@ -803,16 +845,71 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           let n = ny * W + nx, mc = MOVE[T.biome[n]];
           if (!isFinite(mc)) continue;
-          this.roadCell[n] && (mc *= 0.6), mc *= k > 3 ? 1.414 : 1;
+          this.roadCell[n] ? mc *= 0.6 : T.river[n] && (mc += 1.2), mc *= k > 3 ? 1.414 : 1;
           let nr = raw[c] + mc;
           if (nr > reach[cid]) continue;
-          let nd = d + mc / str[cid];
+          let w = mc / str[cid];
+          if (prev) {
+            let p = prev[n];
+            p === nat[cid] ? w *= 0.55 : p >= 0 && (w *= 1.6);
+          }
+          let nd = d + w;
           nd < dist[n] && (dist[n] = nd, raw[n] = nr, own[n] = cid, heap.push(nd, n));
         }
       }
-      this.cellCity = own;
-      let cn = this.cellNation = new Int16Array(N).fill(-1);
-      for (let i = 0; i < N; i++) own[i] >= 0 && (cn[i] = this.cities[own[i]].nation);
+      let cn = new Int16Array(N).fill(-1);
+      for (let i = 0; i < N; i++) own[i] >= 0 && (cn[i] = nat[own[i]]);
+      let vals = new Int16Array(8), cnts = new Uint8Array(8), owns = new Int32Array(8);
+      for (let it = 0; it < 2; it++) {
+        let cn2 = Int16Array.from(cn), own2 = Int32Array.from(own);
+        for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+          let i = y * W + x;
+          if (cityCell[i] || !isFinite(MOVE[T.biome[i]])) continue;
+          let m = 0;
+          for (let k = 0; k < 8; k++) {
+            let j = i + NEI8[k][1] * W + NEI8[k][0];
+            if (!isFinite(MOVE[T.biome[j]])) continue;
+            let v = cn[j], q = 0;
+            for (; q < m && vals[q] !== v; ) q++;
+            q === m && (vals[m] = v, cnts[m] = 0, owns[m] = own[j], m++), cnts[q]++;
+          }
+          let best = -1;
+          for (let q = 0; q < m; q++) (best < 0 || cnts[q] > cnts[best]) && (best = q);
+          best >= 0 && cnts[best] >= 5 && vals[best] !== cn[i] && (cn2[i] = vals[best], own2[i] = owns[best]);
+        }
+        cn = cn2, own = own2;
+      }
+      let seen = new Uint8Array(N), stack = new Int32Array(N);
+      for (let s0 = 0; s0 < N; s0++) {
+        if (seen[s0] || cn[s0] < 0) continue;
+        let nid = cn[s0], sp = 0, hasCity = !1, comp = [], border = /* @__PURE__ */ new Map();
+        for (stack[sp++] = s0, seen[s0] = 1; sp; ) {
+          let c = stack[--sp];
+          comp.push(c), cityCell[c] && nat[own[c]] === nid && (hasCity = !0);
+          let cx = c % W, cy = c / W | 0;
+          for (let k = 0; k < 4; k++) {
+            let nx = cx + NEI8[k][0], ny = cy + NEI8[k][1];
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+            let n = ny * W + nx;
+            cn[n] === nid ? seen[n] || (seen[n] = 1, stack[sp++] = n) : isFinite(MOVE[T.biome[n]]) && border.set(cn[n], (border.get(cn[n]) || 0) + 1);
+          }
+        }
+        if (hasCity) continue;
+        let bn = -1, bc = -1;
+        for (let [k, v] of border) v > bc && (bc = v, bn = k);
+        let donor = -1;
+        if (bn >= 0) for (let c of comp) {
+          let cx = c % W, cy = c / W | 0;
+          for (let k = 0; k < 4 && donor < 0; k++) {
+            let n = (cy + NEI8[k][1]) * W + cx + NEI8[k][0];
+            n >= 0 && n < N && cn[n] === bn && (donor = own[n]);
+          }
+          if (donor >= 0) break;
+        }
+        for (let c of comp)
+          cn[c] = bn, own[c] = bn >= 0 ? donor : -1;
+      }
+      this.cellCity = own, this.cellNation = cn;
       for (let n of this.nations) n.neighbors = /* @__PURE__ */ new Set();
       for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) {
         let i = y * W + x, a = cn[i];
@@ -822,6 +919,13 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         }
       }
       this.territoryVersion++;
+    }
+    // transfère immédiatement les terres d'une ville (conquête, sécession) avant recalcul
+    flipLands(cityIds, nid) {
+      if (!this.cellNation) return;
+      let set = new Set(cityIds);
+      for (let i = 0; i < this.cellCity.length; i++) set.has(this.cellCity[i]) && (this.cellNation[i] = nid);
+      this.updateTerritory();
     }
     computeProduction(c) {
       let { W, H } = this, T = this.T, R = 5, p = GOODS.map(() => 0), cells = 0;
@@ -839,7 +943,7 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     }
     // ---------- simulation ----------
     stepDay() {
-      this.day++, this.day % 30 === 0 && this.monthly();
+      this.day++, this.wars.length && this.moveUnits(), this.day % 30 === 0 && this.monthly();
     }
     monthly() {
       this.month = (this.month + 1) % 12, this.month === 0 && (this.year++, this.year === 0 && (this.year = 1));
@@ -919,8 +1023,8 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     }
     declareWar(a, b) {
       if (a === b || this.atWar(a, b)) return !1;
-      let A = this.nations[a], Bn = this.nations[b];
-      return this.wars.push({ a, b, start: this.year, months: 0, score: 0 }), A.rel[b] = Math.min(A.rel[b] ?? 0, -60), Bn.rel[a] = Math.min(Bn.rel[a] ?? 0, -60), A.pacts?.delete(b), Bn.pacts?.delete(a), this.log("guerre", { w: 9, nations: [a, b], title: `${A.name} d\xE9clare la guerre \xE0 ${Bn.name} !`, text: `${this.leaderTitle(A)} ${this.leaderFull(A)} lance ses arm\xE9es contre ${Bn.name}.`, body: `Les tambours r\xE9sonnent aux fronti\xE8res. ${A.name} aligne environ ${Math.round(A.army * 10).toLocaleString("fr")} soldats face aux ${Math.round(Bn.army * 10).toLocaleString("fr")} de ${Bn.name}. Les marchands ferment leurs comptoirs.` }), !0;
+      let A = this.nations[a], Bn = this.nations[b], w = { a, b, start: this.year, months: 0, score: 0, units: { a: { nation: a, path: null, pos: 0, target: -1, state: "march" }, b: { nation: b, path: null, pos: 0, target: -1, state: "march" } } };
+      return this.wars.push(w), this.planUnit(w, "a"), this.planUnit(w, "b"), A.rel[b] = Math.min(A.rel[b] ?? 0, -60), Bn.rel[a] = Math.min(Bn.rel[a] ?? 0, -60), A.pacts?.delete(b), Bn.pacts?.delete(a), this.log("guerre", { w: 9, nations: [a, b], title: `${A.name} d\xE9clare la guerre \xE0 ${Bn.name} !`, text: `${this.leaderTitle(A)} ${this.leaderFull(A)} lance ses arm\xE9es contre ${Bn.name}.`, body: `Les tambours r\xE9sonnent aux fronti\xE8res. ${A.name} aligne environ ${Math.round(A.army * 10).toLocaleString("fr")} soldats face aux ${Math.round(Bn.army * 10).toLocaleString("fr")} de ${Bn.name}. Les marchands ferment leurs comptoirs.` }), !0;
     }
     makePeace(w, reason) {
       this.wars = this.wars.filter((x) => x !== w);
@@ -935,46 +1039,98 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
       let other = this.nations[b];
       return (w.a === b ? w.score : -w.score) < 0 || w.months > 14 || other.stability < 0.35 || this.rng.chance(0.25) ? (this.makePeace(w, "La paix est propos\xE9e et accept\xE9e."), !0) : !1;
     }
+    // ---------- armées en campagne ----------
+    unitXY(u) {
+      if (!u.path) return null;
+      let W = this.W, L = u.path.length, k = Math.max(0, Math.min(L - 1, Math.floor(u.pos))), f = Math.min(1, u.pos - k), a = u.path[k], b = u.path[Math.min(L - 1, k + 1)];
+      return [a % W + 0.5 + (b % W - a % W) * f, (a / W | 0) + 0.5 + ((b / W | 0) - (a / W | 0)) * f];
+    }
+    planUnit(w, side) {
+      let u = w.units[side], me = this.nations[side === "a" ? w.a : w.b], foe = this.nations[side === "a" ? w.b : w.a], mine = this.citiesOf(me), theirs = this.citiesOf(foe);
+      if (u.path = null, !mine.length || !theirs.length) return;
+      let start = null, cur2 = u._last != null ? u._last : null, best = null, bd = 1 / 0, from = null;
+      for (let t of theirs)
+        if (cur2 != null) {
+          let d = Math.hypot(t.x - cur2 % this.W, t.y - (cur2 / this.W | 0));
+          d < bd && (bd = d, best = t, from = cur2);
+        } else for (let o of mine) {
+          let d = this.dist(o, t);
+          d < bd && (bd = d, best = t, from = o.i);
+        }
+      if (!best || bd > 160) return;
+      start = from;
+      let res = this.findPath(start, best.i, 7e4);
+      res && (u.path = res.path, u.pos = 0, u.target = best.id, u.state = "march", u.siege = 0);
+    }
+    moveUnits() {
+      for (let w of this.wars) for (let side of ["a", "b"]) {
+        let u = w.units[side];
+        if (u.state === "rest") {
+          this.day % 30 === 0 && --u.rest <= 0 && (u.state = "march", this.planUnit(w, side));
+          continue;
+        }
+        if (!u.path || u.state !== "march") continue;
+        let n = this.nations[u.nation];
+        u.pos += (3 + n.era * 0.6) / 30, u.pos >= u.path.length - 1 && (u.pos = u.path.length - 1, u.state = "siege"), u._last = u.path[Math.floor(u.pos)];
+      }
+    }
     warsMonthly() {
+      this.battles = this.battles || [];
       for (let w of [...this.wars]) {
         let A = this.nations[w.a], Bn = this.nations[w.b];
         if (!A.alive || !Bn.alive) {
           this.wars = this.wars.filter((x) => x !== w);
           continue;
         }
-        w.months++;
-        let sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3), sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
-        if (A.army = Math.max(1, A.army - sb * 0.025), Bn.army = Math.max(1, Bn.army - sa * 0.025), w.score += sa > sb ? 1 : -1, A.exhaustion += 0.02, Bn.exhaustion += 0.02, w.months % 3 === 0) {
-          let winner = sa > sb ? A : Bn, loser = winner === A ? Bn : A;
-          Math.max(sa, sb) / Math.max(1, Math.min(sa, sb)) > 1.15 && this.tryCapture(winner, loser);
+        w.months++, A.exhaustion += 0.015, Bn.exhaustion += 0.015;
+        for (let side of ["a", "b"]) {
+          let u = w.units[side], foe = side === "a" ? Bn : A, t = this.cities[u.target];
+          u.state !== "rest" && (!u.path || !t || !t.alive || t.nation !== foe.id) && this.planUnit(w, side);
+        }
+        let ua = w.units.a, ub = w.units.b, pa = this.unitXY(ua), pb = this.unitXY(ub);
+        if (!pa && !pb && w.months > 6) {
+          this.makePeace(w, "Aucune arm\xE9e ne peut atteindre l'ennemi : la guerre s'\xE9teint d'elle-m\xEAme.");
+          continue;
+        }
+        if (A.army = Math.max(1, A.army * 0.995), Bn.army = Math.max(1, Bn.army * 0.995), pa && pb && Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < 2.5) {
+          let sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3), sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
+          A.army = Math.max(1, A.army - sb * 0.12), Bn.army = Math.max(1, Bn.army - sa * 0.12);
+          let winA = sa > sb, win = winA ? A : Bn, lose = winA ? Bn : A, lu = winA ? ub : ua;
+          w.score += winA ? 2 : -2, lu.pos = Math.max(0, lu.pos - 7), lu.state = "march";
+          let x = (pa[0] + pb[0]) / 2, y = (pa[1] + pb[1]) / 2, place = this.nearestCity(x, y);
+          this.battles.push({ x, y, year: this.year, month: this.month, a: w.a, b: w.b, win: win.id, t: this.day }), this.battles.length > 60 && this.battles.shift(), this.log("bataille", { w: 5, nations: [w.a, w.b], title: `Bataille de ${place ? place.name : "la plaine"}`, text: `Bataille pr\xE8s de ${place ? place.name : "la fronti\xE8re"} : victoire de ${win.name}.`, body: `Les arm\xE9es de ${A.name} et de ${Bn.name} se sont affront\xE9es pr\xE8s de ${place ? place.name : "la fronti\xE8re"}. ${win.name} reste ma\xEEtre du terrain ; les troupes de ${lose.name} se replient.` });
+        }
+        for (let side of ["a", "b"]) {
+          let u = w.units[side];
+          if (u.state !== "siege") continue;
+          let me = side === "a" ? A : Bn, foe = side === "a" ? Bn : A, t = this.cities[u.target];
+          if (!t || !t.alive || t.nation !== foe.id) {
+            this.planUnit(w, side);
+            continue;
+          }
+          u.siege = (u.siege || 0) + 1;
+          let ratio = Math.max(0.3, Math.min(2.5, me.army / (foe.army * 0.6 + t.pop / 2e3 + 1))), p = 0.045 * (t.buildings.muraille ? 0.4 : 1) * ratio;
+          this.rng.chance(p) ? (w.score += side === "a" ? 3 : -3, this.transferCity(t, me, "conquest"), u._last = t.i, u.state = "rest", u.rest = 6) : (u.siege === 1 || t.buildings.muraille && this.rng.chance(0.15)) && this.log("siege", { w: 4, nations: [me.id, foe.id], city: t.id, text: u.siege === 1 ? `Les troupes de ${me.name} mettent le si\xE8ge devant ${t.name}.` : `Les murailles de ${t.name} tiennent bon face \xE0 ${me.name}.` });
         }
         if (!A.alive || !Bn.alive) {
           this.wars = this.wars.filter((x) => x !== w);
           continue;
         }
-        let tired = w.months > 12 && this.rng.chance(0.03 + Math.abs(w.score) * 4e-3 + w.months * 8e-4), ai = w.a !== this.player && w.b !== this.player || A.auto && Bn.auto;
+        let tired = w.months > 12 && this.rng.chance(0.03 + Math.abs(w.score) * 3e-3 + w.months * 8e-4), ai = w.a !== this.player && w.b !== this.player || A.auto && Bn.auto;
         tired && ai ? this.makePeace(w) : tired && w.months > 30 && this.rng.chance(0.3) && this.makePeace(w, "\xC9puis\xE9s, les deux camps signent une paix blanche.");
       }
     }
-    tryCapture(win, lose) {
-      let lc = this.citiesOf(lose), wc = this.citiesOf(win);
-      if (!lc.length || !wc.length) return;
+    nearestCity(x, y) {
       let best = null, bd = 1 / 0;
-      for (let c of lc) for (let o of wc) {
-        let d = this.dist(c, o);
+      for (let c of this.cities) if (c.alive) {
+        let d = Math.hypot(c.x + 0.5 - x, c.y + 0.5 - y);
         d < bd && (bd = d, best = c);
       }
-      if (!best || bd > 45) return;
-      let def = best.buildings.muraille ? 0.45 : 1;
-      if (!this.rng.chance(0.5 * def)) {
-        best.buildings.muraille && this.rng.chance(0.3) && this.log("siege", { w: 4, nations: [win.id, lose.id], city: best.id, text: `Les murailles de ${best.name} repoussent l'assaut de ${win.name}.` });
-        return;
-      }
-      this.transferCity(best, win, "conquest");
+      return best;
     }
     transferCity(c, to, why) {
       let from = this.nations[c.nation], wasCapital = from.capital === c.id;
-      c.nation = to.id, c.pop *= why === "conquest" ? 0.85 : 1, to.conquests++, this.cityVersion++, why === "conquest" && this.log("conquete", { w: wasCapital ? 9 : 6, nations: [to.id, from.id], city: c.id, title: `${c.name} tombe aux mains de ${to.name}`, text: `${to.name} s'empare de ${c.name}${wasCapital ? `, capitale de ${from.name}` : ""}.`, body: `Apr\xE8s un si\xE8ge \xE9prouvant, les troupes de ${to.name} entrent dans ${c.name}. La population, estim\xE9e \xE0 ${Math.round(c.pop).toLocaleString("fr")} \xE2mes, attend le sort que lui r\xE9serve son nouveau ma\xEEtre.` });
+      c.nation = to.id, c.pop *= why === "conquest" ? 0.85 : 1, to.conquests++, this.cityVersion++, this.flipLands([c.id], to.id), why === "conquest" && this.log("conquete", { w: wasCapital ? 9 : 6, nations: [to.id, from.id], city: c.id, title: `${c.name} tombe aux mains de ${to.name}`, text: `${to.name} s'empare de ${c.name}${wasCapital ? `, capitale de ${from.name}` : ""}.`, body: `Apr\xE8s un si\xE8ge \xE9prouvant, les troupes de ${to.name} entrent dans ${c.name}. La population, estim\xE9e \xE0 ${Math.round(c.pop).toLocaleString("fr")} \xE2mes, attend le sort que lui r\xE9serve son nouveau ma\xEEtre.` });
       let rest = this.citiesOf(from);
       rest.length ? wasCapital && (rest.sort((a, b) => b.pop - a.pop), from.capital = rest[0].id, from.stability *= 0.7, from.legitimacy *= 0.7, this.log("capitale", { w: 5, nations: [from.id], text: `${from.name} transf\xE8re sa capitale \xE0 ${rest[0].name}.` })) : (from.alive = !1, this.wars = this.wars.filter((w) => w.a !== from.id && w.b !== from.id), this.log("chute", { w: 10, nations: [from.id, to.id], title: `Chute de ${from.name}`, text: `${from.name} cesse d'exister, absorb\xE9 par ${to.name}.`, body: `Fond\xE9 en ${fmtYear(from.founded)}, ${from.name} dispara\xEEt des cartes. Les chroniqueurs se souviendront de ${this.leaderTitle(from).toLowerCase()} ${this.leaderFull(from)}, son dernier souverain.` }));
     }
@@ -990,7 +1146,13 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         n.tech += gain / (1 + n.era * 0.25);
         let era = 0;
         for (let e = 0; e < ERAS.length; e++) n.tech >= ERAS[e].tech && (era = e);
-        era > n.era && this.enterEra(n, era), n.leader.age++;
+        era > n.era && this.enterEra(n, era), n.leader.age++, n.court = n.court || COURT_ROLES.map((role) => ({ role, L: this.makePerson(n) }));
+        for (let m of n.court)
+          if (m.L.age++, this.rng.chance(m.L.age > 65 ? 0.12 : 0.02)) {
+            let old = m.L;
+            m.L = this.makePerson(n), n.id === this.player && this.log("cour", { w: 3, nations: [n.id], text: `${this.courtTitle(m.role, n.era, old.female)} ${old.name} quitte la cour ; ${m.L.name} ${m.L.female ? "la" : "le"} remplace.` });
+          }
+        n.id === this.player && !n.auto && !this.pendingChoice && this.rng.chance(0.45) && this.onChoice && this.onChoice(n);
         let a = n.leader.age, p = a < 35 ? 6e-3 : a < 50 ? 0.014 : a < 62 ? 0.035 : a < 72 ? 0.08 : 0.17;
         r.chance(p) ? this.leaderDies(n) : REGIMES[n.regime].term && this.year - n.leader.since >= REGIMES[n.regime].term && this.election(n), n.stability < 0.22 && r.chance(0.18) ? this.revolution(n) : n.stability < 0.3 && cs.length >= 3 && r.chance(0.2) && this.secession(n), this.randomEvents(n, cs);
         for (let c of cs)
@@ -1010,8 +1172,40 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         let a = this.cities[rd.a], b = this.cities[rd.b];
         !rd.rail && a.alive && b.alive && this.nations[a.nation].era >= 4 && this.nations[b.nation].era >= 4 && a.pop > 12e3 && b.pop > 8e3 && (rd.rail = !0, this.roadVersion++, r.chance(0.3) && this.log("rail", { w: 3, nations: [a.nation], text: `La ligne de chemin de fer ${a.name}\u2013${b.name} est inaugur\xE9e.` }));
       }
-      this.updateTerritory();
+      this.updateTerritory(), this.resolveEnclaves();
       for (let c of this.cities) c.alive && this.computeProduction(c);
+    }
+    // Une poche isolée (coupée de la capitale et entourée par un seul voisin) finit par se rallier à lui.
+    resolveEnclaves() {
+      let { W, H } = this, cn = this.cellNation, N = W * H, seen = new Uint8Array(N), cityAt = /* @__PURE__ */ new Map();
+      for (let c of this.cities) c.alive && cityAt.set(c.i, c);
+      let changed = !1;
+      for (let s0 = 0; s0 < N; s0++) {
+        if (seen[s0] || cn[s0] < 0) continue;
+        let nid = cn[s0], st = [s0], cs = [], border = /* @__PURE__ */ new Map(), size = 0, hasCap = !1;
+        for (seen[s0] = 1; st.length; ) {
+          let c = st.pop();
+          size++;
+          let city = cityAt.get(c);
+          city && city.nation === nid && (cs.push(city), this.nations[nid].capital === city.id && (hasCap = !0));
+          let x = c % W, y = c / W | 0;
+          for (let k = 0; k < 4; k++) {
+            let nx = x + NEI8[k][0], ny = y + NEI8[k][1];
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+            let n = ny * W + nx;
+            cn[n] === nid ? seen[n] || (seen[n] = 1, st.push(n)) : isFinite(MOVE[this.T.biome[n]]) && border.set(cn[n], (border.get(cn[n]) || 0) + 1);
+          }
+        }
+        if (hasCap || !cs.length || size > 260) continue;
+        let tot = 0, bn = -1, bc = 0;
+        for (let [k, v] of border)
+          tot += v, v > bc && (bc = v, bn = k);
+        if (bn < 0 || bc < tot * 0.7 || this.atWar(nid, bn) || !this.rng.chance(0.2)) continue;
+        let from = this.nations[nid], to = this.nations[bn];
+        for (let c of cs) c.nation = bn;
+        changed = !0, this.cityVersion++, this.log("ralliement", { w: nid === this.player || bn === this.player ? 7 : 4, nations: [bn, nid], city: cs[0].id, title: `${cs[0].name} se rallie \xE0 ${to.name}`, text: `Coup\xE9e de ${from.name}, ${cs.map((c) => c.name).join(", ")} se rallie \xE0 ${to.name}.`, body: `Isol\xE9e au milieu des terres de ${to.name}, ${cs[0].name} a fini par ouvrir ses portes. Les notables invoquent le commerce, les mariages et le bon sens.` }), this.citiesOf(from).length || (from.alive = !1, this.wars = this.wars.filter((w) => w.a !== from.id && w.b !== from.id));
+      }
+      changed && this.updateTerritory();
     }
     enterEra(n, era) {
       n.era = era;
@@ -1057,7 +1251,7 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
       for (let o of this.nations)
         nn.rel[o.id] = o.id === n.id ? -50 : 0, o.rel[nn.id] = o.id === n.id ? -50 : 0;
       for (let c of cs.slice(1)) this.dist(c, rebel) < 14 && this.rng.chance(0.6) && (c.nation = nn.id);
-      rebel.nation = nn.id, n.stability += 0.1, this.cityVersion++, this.log("secession", { w: 9, nations: [nn.id, n.id], city: rebel.id, title: `${rebel.name} proclame son ind\xE9pendance`, text: `${rebel.name} fait s\xE9cession de ${n.name} et fonde ${nn.name}.`, body: `Lass\xE9s des imp\xF4ts et de l'\xE9loignement de ${cap2.name}, les notables de ${rebel.name} proclament ${nn.name}. ${this.leaderTitle(nn)} ${this.leaderFull(nn)} en prend la t\xEAte.` }), this.rng.chance(0.5) && this.declareWar(n.id, nn.id);
+      rebel.nation = nn.id, n.stability += 0.1, this.cityVersion++, this.flipLands(this.cities.filter((c) => c.nation === nn.id).map((c) => c.id), nn.id), this.log("secession", { w: 9, nations: [nn.id, n.id], city: rebel.id, title: `${rebel.name} proclame son ind\xE9pendance`, text: `${rebel.name} fait s\xE9cession de ${n.name} et fonde ${nn.name}.`, body: `Lass\xE9s des imp\xF4ts et de l'\xE9loignement de ${cap2.name}, les notables de ${rebel.name} proclament ${nn.name}. ${this.leaderTitle(nn)} ${this.leaderFull(nn)} en prend la t\xEAte.` }), this.rng.chance(0.5) && this.declareWar(n.id, nn.id);
     }
     randomEvents(n, cs) {
       let r = this.rng;
@@ -1135,7 +1329,7 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         for (let nb of n.neighbors) {
           let o = this.nations[nb];
           if (!o.alive) continue;
-          let aggr = (T.includes("conquerant") ? 0.08 : 0.025) + (n.regime === "Dictature" || n.regime === "Empire" ? 0.03 : 0);
+          let aggr = (T.includes("conquerant") ? 0.05 : 0.012) + (n.regime === "Dictature" || n.regime === "Empire" ? 0.02 : 0);
           if ((n.rel[nb] ?? 0) < -35 && n.army > o.army * 1.25 && r.chance(aggr * 2)) {
             this.declareWar(n.id, nb);
             break;
@@ -1537,7 +1731,7 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         for (let [w2, p] of this.rivers)
           ctx.lineWidth = w2, ctx.stroke(p);
       }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0), this.drawArmies(ctx, s);
       let labels = [];
       for (let c of visible) {
         let [x, y] = this.toScreen(c.x + 0.5, c.y + 0.5), n = wd.nations[c.nation], isCap = n.capital === c.id, size = 2.5 + Math.log10(c.pop) * 1.4 + (isCap ? 1.5 : 0), a = 1 - cityZoom;
@@ -1585,6 +1779,43 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         ctx.strokeStyle = "rgba(160,30,20,0.9)", ctx.lineWidth = 2, ctx.setLineDash([6, 4]), ctx.beginPath(), ctx.arc(x, y, r, 0, Math.PI * 2), ctx.stroke(), ctx.setLineDash([]);
       }
       drawCompass(ctx, w - 70, h - 110);
+    }
+  };
+  Renderer.prototype.drawArmies = function(ctx, s) {
+    let wd = this.world;
+    for (let b of wd.battles || []) {
+      let age = (wd.day - b.t) / 360;
+      if (age > 1.5) continue;
+      let [x, y] = this.toScreen(b.x, b.y);
+      ctx.globalAlpha = Math.max(0, 1 - age / 1.5), ctx.font = "18px serif", ctx.textAlign = "center", haloText(ctx, "\u2694", x, y + 6, "rgb(120,20,15)", "rgba(250,240,220,0.9)"), ctx.globalAlpha = 1;
+    }
+    for (let w of wd.wars) for (let side of ["a", "b"]) {
+      let u = w.units[side];
+      if (!u.path) continue;
+      let n = wd.nations[u.nation], p = wd.unitXY(u);
+      if (!p) continue;
+      let mine = u.nation === wd.player;
+      if (u.state === "march" && (mine || s > 6)) {
+        ctx.beginPath();
+        let k0 = Math.floor(u.pos), [sx, sy] = this.toScreen(p[0], p[1]);
+        ctx.moveTo(sx, sy);
+        for (let k = k0 + 1; k < u.path.length; k += 1) {
+          let i = u.path[k], [x2, y2] = this.toScreen(i % wd.W + 0.5, (i / wd.W | 0) + 0.5);
+          ctx.lineTo(x2, y2);
+        }
+        ctx.strokeStyle = `rgba(${n.color[0] * 0.6 | 0},${n.color[1] * 0.6 | 0},${n.color[2] * 0.6 | 0},0.8)`, ctx.lineWidth = 2, ctx.setLineDash([5, 5]), ctx.stroke(), ctx.setLineDash([]);
+      }
+      let [x, y] = this.toScreen(p[0], p[1]), size = 7 + Math.min(10, Math.log10(1 + n.army * 10) * 2);
+      if (u.state === "siege") {
+        let t = wd.cities[u.target];
+        if (t) {
+          let [tx, ty] = this.toScreen(t.x + 0.5, t.y + 0.5);
+          ctx.strokeStyle = "rgba(160,20,10,0.8)", ctx.lineWidth = 2, ctx.beginPath(), ctx.arc(tx, ty, 14 + Math.sin(performance.now() / 200) * 3, 0, Math.PI * 2), ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = "rgb(40,28,18)", ctx.lineWidth = 1.5, ctx.beginPath(), ctx.moveTo(x, y + size * 0.6), ctx.lineTo(x, y - size * 1.4), ctx.stroke();
+      let wave = Math.sin(performance.now() / 250 + u.nation) * 2;
+      ctx.beginPath(), ctx.moveTo(x, y - size * 1.4), ctx.quadraticCurveTo(x + size * 0.7, y - size * 1.4 + wave, x + size * 1.4, y - size * 1.2), ctx.lineTo(x + size * 1.4, y - size * 0.4), ctx.quadraticCurveTo(x + size * 0.7, y - size * 0.6 + wave, x, y - size * 0.6), ctx.closePath(), ctx.fillStyle = rgb(n.color), ctx.fill(), ctx.lineWidth = mine ? 2 : 1, ctx.stroke(), ctx.beginPath(), ctx.arc(x, y + size * 0.6, 3, 0, Math.PI * 2), ctx.fillStyle = "rgb(40,28,18)", ctx.fill(), s > 5 && (ctx.font = "11px Georgia, serif", ctx.textAlign = "left", haloText(ctx, `${Math.round(n.army * 10).toLocaleString("fr")}`, x + size * 1.6, y - size * 0.7, "rgb(40,28,18)", "rgba(244,232,204,0.85)"));
     }
   };
   function haloText(ctx, t, x, y, fg, bg) {
@@ -1890,6 +2121,203 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     drawPortrait(ctx, L.L, features(L.L, L.culture), { nationColor: L.color, era: L.era, regime: L.regime, mood: L.mood, sepia: !0 }, 0.3, cv.width, cv.height);
   }
 
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/events.js
+  var clamp = (v) => Math.max(0, Math.min(1, v));
+  function bump(n, role, d) {
+    let p = n.parties.find((x) => x.role === role);
+    if (!p) return;
+    p.support = Math.max(0.02, p.support + d);
+    let tot = n.parties.reduce((s, x) => s + x.support, 0);
+    for (let x of n.parties) x.support /= tot;
+  }
+  var stab = (n, d) => {
+    n.stability = clamp(n.stability + d);
+  }, legit = (n, d) => {
+    n.legitimacy = clamp(n.legitimacy + d);
+  }, pick = (w, arr) => arr[Math.floor(w.rng.next() * arr.length)], cur = (n) => ERAS[n.era].currency, CHOICES = [
+    {
+      id: "famine",
+      role: "argentier",
+      when: (w, n) => n.shortage > 0.15 || w.citiesOf(n).some((c) => c.shortage > 0.2),
+      setup: (w, n) => ({ city: w.citiesOf(n).sort((a, b) => b.shortage - a.shortage)[0] }),
+      title: (c) => `Les greniers de ${c.city.name} sont vides`,
+      text: (c, w, n) => `Le prix du bl\xE9 a tripl\xE9 sur le march\xE9 de ${c.city.name}. Les m\xE8res font la queue d\xE8s l'aube et l'on murmure contre le palais. Que faisons-nous ?`,
+      options: [
+        { label: "Ouvrir les greniers de l'\xC9tat", hint: (c, w, n) => `\u2212${Math.round(40 + c.city.pop / 400)} ${cur(n)}, +concorde, bl\xE9 distribu\xE9`, apply: (c, w, n) => (n.treasury -= 40 + c.city.pop / 400, c.city.stock[0] += c.city.pop / 400, c.city.shortage = 0, stab(n, 0.06), bump(n, "peuple", 0.03), "Les greniers sont ouverts : la foule acclame le souverain.") },
+        { label: "Taxer les sp\xE9culateurs", hint: () => "+tr\xE9sor, \u2212marchands, concorde incertaine", apply: (c, w, n) => (n.treasury += 30 + c.city.pop / 600, bump(n, "commerce", -0.04), stab(n, w.rng.chance(0.5) ? 0.03 : -0.04), "Les accapareurs sont mis \xE0 l'amende.") },
+        { label: "Laisser faire le march\xE9", hint: () => "\u2212concorde", apply: (c, w, n) => (stab(n, -0.05), bump(n, "commerce", 0.02), "Le palais reste muet. La col\xE8re gronde.") }
+      ]
+    },
+    {
+      id: "revolte",
+      role: "marechal",
+      when: (w, n) => n.stability < 0.5 && w.citiesOf(n).length > 1,
+      setup: (w, n) => {
+        let cap2 = w.cities[n.capital];
+        return { city: w.citiesOf(n).filter((c) => c.id !== n.capital).sort((a, b) => w.dist(b, cap2) - w.dist(a, cap2))[0] };
+      },
+      title: (c) => `\xC9meutes \xE0 ${c.city.name}`,
+      text: (c) => `Des paysans arm\xE9s de fourches ont pris la place du march\xE9 de ${c.city.name}. Ils r\xE9clament moins d'imp\xF4ts et la t\xEAte du percepteur.`,
+      options: [
+        { label: "Envoyer la troupe", hint: () => "\u221210 % arm\xE9e, +ordre, \u2212peuple", apply: (c, w, n) => (n.army *= 0.9, stab(n, 0.05), bump(n, "peuple", -0.04), bump(n, "militaire", 0.03), `La r\xE9volte de ${c.city.name} est \xE9cras\xE9e.`) },
+        { label: "Baisser les imp\xF4ts", hint: () => "imp\xF4ts \u22123 points, +concorde", apply: (c, w, n) => (n.tax = Math.max(0, n.tax - 0.03), stab(n, 0.08), bump(n, "peuple", 0.03), "Le souverain entend la plainte : les imp\xF4ts baissent.") },
+        { label: "Ignorer", hint: () => "risque de s\xE9cession", apply: (c, w, n) => (stab(n, -0.07), "Le palais ignore les \xE9meutiers.") }
+      ]
+    },
+    {
+      id: "architecte",
+      role: "chancelier",
+      when: (w, n) => n.treasury > 120,
+      setup: (w, n) => ({ city: w.cities[n.capital], cost: Math.round(100 + n.era * 60) }),
+      title: (c) => `Un architecte r\xEAve de ${c.city.name}`,
+      text: (c, w, n) => `Un architecte pr\xE9sente les plans d'${["un forum de marbre", "un grand temple", "une cath\xE9drale", "un palais \xE0 coupole", "une gare monumentale", "une tour de verre"][n.era]} pour ${c.city.name}. \xAB Votre nom traversera les si\xE8cles \xBB, promet-il.`,
+      options: [
+        { label: "Financer les travaux", hint: (c, w, n) => `\u2212${c.cost} ${cur(n)}, +l\xE9gitimit\xE9, +rayonnement`, apply: (c, w, n) => (n.treasury -= c.cost, legit(n, 0.12), stab(n, 0.03), n.tech += 15, c.city.K *= 1.05, c.city.monument = (c.city.monument || 0) + 1, `Les travaux commencent \xE0 ${c.city.name}.`) },
+        { label: "Trop cher", hint: () => "rien", apply: () => "L'architecte repart avec ses plans." }
+      ]
+    },
+    {
+      id: "prophete",
+      role: "pretre",
+      when: () => !0,
+      setup: (w, n) => ({ city: pick(w, w.citiesOf(n)) }),
+      title: (c) => `Un proph\xE8te \xE0 ${c.city.name}`,
+      text: (c) => `Un ermite descendu des collines pr\xEAche \xE0 ${c.city.name}. Il annonce la fin des temps et les foules le suivent.`,
+      options: [
+        { label: "L'accueillir \xE0 la cour", hint: () => "+religion, +concorde, \u2212tradition", apply: (c, w, n) => (bump(n, "religion", 0.05), bump(n, "tradition", -0.02), stab(n, 0.04), "Le proph\xE8te si\xE8ge d\xE9sormais au conseil.") },
+        { label: "Le bannir", hint: () => "\u2212religion, +tradition", apply: (c, w, n) => (bump(n, "religion", -0.04), bump(n, "tradition", 0.03), stab(n, -0.02), "Le proph\xE8te est chass\xE9 de la ville.") },
+        { label: "Le faire taire discr\xE8tement", hint: () => "risqu\xE9", apply: (c, w, n) => w.rng.chance(0.5) ? (stab(n, -0.08), legit(n, -0.08), "Le scandale \xE9clate : on accuse le palais.") : "Le proph\xE8te a disparu. Personne ne pose de questions." }
+      ]
+    },
+    {
+      id: "guerre",
+      role: "marechal",
+      when: (w, n) => [...n.neighbors].some((id) => w.nations[id].alive && (n.rel[id] ?? 0) < -15 && !w.atWar(n.id, id)) && !w.warsOf(n.id).length,
+      setup: (w, n) => ({ foe: w.nations[[...n.neighbors].filter((id) => w.nations[id].alive && !w.atWar(n.id, id)).sort((a, b) => (n.rel[a] ?? 0) - (n.rel[b] ?? 0))[0]] }),
+      title: (c) => `Le mar\xE9chal lorgne sur ${c.foe.name}`,
+      text: (c, w, n) => `\xAB Leurs garnisons sont faibles (${Math.round(c.foe.army * 10).toLocaleString("fr")} hommes contre nos ${Math.round(n.army * 10).toLocaleString("fr")}). Un mot de vous et nous marchons sur ${w.cities[c.foe.capital].name}. \xBB`,
+      options: [
+        { label: "D\xE9clarer la guerre", hint: () => "les arm\xE9es se mettent en marche", apply: (c, w, n) => (w.declareWar(n.id, c.foe.id), bump(n, "militaire", 0.04), `Guerre contre ${c.foe.name} !`) },
+        { label: "Fortifier la fronti\xE8re", hint: (c, w, n) => `\u221260 ${cur(n)}, +20 % arm\xE9e`, apply: (c, w, n) => (n.treasury -= 60, n.army *= 1.2, "Les forts de la fronti\xE8re sont renforc\xE9s.") },
+        { label: "Refuser", hint: () => "\u2212militaires, +relations", apply: (c, w, n) => (bump(n, "militaire", -0.04), n.rel[c.foe.id] = (n.rel[c.foe.id] ?? 0) + 15, c.foe.rel[n.id] = (c.foe.rel[n.id] ?? 0) + 15, "Le mar\xE9chal range ses cartes, vex\xE9.") }
+      ]
+    },
+    {
+      id: "comptoir",
+      role: "chancelier",
+      when: (w, n) => [...n.neighbors].some((id) => w.nations[id].alive && !n.pacts?.has(id) && !w.atWar(n.id, id)),
+      setup: (w, n) => ({ other: w.nations[pick(w, [...n.neighbors].filter((id) => w.nations[id].alive && !n.pacts?.has(id) && !w.atWar(n.id, id)))] }),
+      title: (c) => `Des marchands de ${c.other.name} demandent un comptoir`,
+      text: (c) => `Une guilde de ${c.other.name} propose d'ouvrir un comptoir dans nos murs, en \xE9change d'exemptions de taxes.`,
+      options: [
+        { label: "Signer un trait\xE9 de commerce", hint: () => "+commerce, +relations, \u2212tradition", apply: (c, w, n) => (n.pacts = n.pacts || /* @__PURE__ */ new Set(), c.other.pacts = c.other.pacts || /* @__PURE__ */ new Set(), n.pacts.add(c.other.id), c.other.pacts.add(n.id), n.rel[c.other.id] = (n.rel[c.other.id] ?? 0) + 20, c.other.rel[n.id] = (c.other.rel[n.id] ?? 0) + 20, bump(n, "commerce", 0.04), bump(n, "tradition", -0.02), `Trait\xE9 de commerce avec ${c.other.name}.`) },
+        { label: "Refuser", hint: () => "+tradition, \u2212relations", apply: (c, w, n) => (bump(n, "tradition", 0.03), n.rel[c.other.id] = (n.rel[c.other.id] ?? 0) - 10, "Les marchands \xE9trangers repartent bredouilles.") }
+      ]
+    },
+    {
+      id: "savant",
+      role: "chancelier",
+      when: (w, n) => n.era >= 1,
+      setup: (w, n) => ({ city: w.citiesOf(n).sort((a, b) => b.pop - a.pop)[0], cost: 80 + n.era * 40 }),
+      title: (c) => `Un savant de ${c.city.name} demande audience`,
+      text: (c, w, n) => `Il pr\xE9tend pouvoir ${["mesurer la Terre avec un b\xE2ton", "canaliser les eaux de la ville", "am\xE9liorer les moulins", "imprimer les livres par milliers", "faire rouler des voitures sans chevaux", "faire penser des machines"][n.era]}. Il lui faut des fonds.`,
+      options: [
+        { label: "Financer ses recherches", hint: (c, w, n) => `\u2212${c.cost} ${cur(n)}, +savoir`, apply: (c, w, n) => (n.treasury -= c.cost, n.tech += 30 + n.era * 10, "Les recherches avancent \xE0 grands pas.") },
+        { label: "Le cong\xE9dier", hint: () => "rien", apply: () => "Le savant part chercher fortune ailleurs." }
+      ]
+    },
+    {
+      id: "peste",
+      role: "pretre",
+      when: (w, n) => n.era < 4 && w.citiesOf(n).some((c) => c.coastal),
+      setup: (w, n) => ({ city: pick(w, w.citiesOf(n).filter((c) => c.coastal)) }),
+      title: (c) => `Un navire suspect \xE0 ${c.city.name}`,
+      text: (c) => `Un navire venu de loin a jet\xE9 l'ancre \xE0 ${c.city.name}. Plusieurs marins sont pris de fi\xE8vre. Les marchands veulent d\xE9charger la cargaison.`,
+      options: [
+        { label: "Quarantaine stricte", hint: () => "\u2212commerce cette ann\xE9e, population sauve", apply: (c, w, n) => (c.city.tradeEMA *= 0.5, bump(n, "commerce", -0.03), `${c.city.name} est mise en quarantaine.`) },
+        { label: "Laisser d\xE9charger", hint: () => "+tr\xE9sor, risque d'\xE9pid\xE9mie", apply: (c, w, n) => {
+          if (n.treasury += 40, w.rng.chance(0.55)) {
+            for (let x of w.citiesOf(n)) x.pop *= 0.85;
+            return stab(n, -0.08), "La peste se r\xE9pand depuis le port !";
+          }
+          return "Fausse alerte : la cargaison enrichit la ville.";
+        } }
+      ]
+    },
+    {
+      id: "mariage",
+      role: "chancelier",
+      when: (w, n) => ["Royaume", "Empire"].includes(n.regime) && w.nations.some((o) => o.alive && o !== n && ["Royaume", "Empire"].includes(o.regime) && !w.atWar(n.id, o.id)),
+      setup: (w, n) => ({ other: pick(w, w.nations.filter((o) => o.alive && o !== n && ["Royaume", "Empire"].includes(o.regime) && !w.atWar(n.id, o.id))) }),
+      title: (c) => `Une alliance matrimoniale avec ${c.other.name}`,
+      text: (c, w, n) => `La maison ${c.other.leader.dynasty} propose d'unir ses enfants \xE0 ceux de la maison ${n.leader.dynasty}.`,
+      options: [
+        { label: "Accepter le mariage", hint: () => "+40 relations, +l\xE9gitimit\xE9", apply: (c, w, n) => (n.rel[c.other.id] = (n.rel[c.other.id] ?? 0) + 40, c.other.rel[n.id] = (c.other.rel[n.id] ?? 0) + 40, legit(n, 0.06), `Les maisons ${n.leader.dynasty} et ${c.other.leader.dynasty} sont unies.`) },
+        { label: "D\xE9cliner poliment", hint: () => "\u2212relations", apply: (c, w, n) => (n.rel[c.other.id] = (n.rel[c.other.id] ?? 0) - 10, "La proposition est d\xE9clin\xE9e.") }
+      ]
+    },
+    {
+      id: "greve",
+      role: "chancelier",
+      when: (w, n) => n.era >= 4,
+      setup: (w, n) => ({ city: w.citiesOf(n).sort((a, b) => b.pop - a.pop)[0] }),
+      title: (c) => `Gr\xE8ve g\xE9n\xE9rale \xE0 ${c.city.name}`,
+      text: (c) => `Les ouvriers des usines de ${c.city.name} ont cess\xE9 le travail. Ils exigent la journ\xE9e de huit heures.`,
+      options: [
+        { label: "C\xE9der aux gr\xE9vistes", hint: () => "+socialistes, +concorde, \u2212tr\xE9sor", apply: (c, w, n) => (n.treasury -= 80, bump(n, "peuple", 0.05), stab(n, 0.06), "La journ\xE9e de huit heures est vot\xE9e.") },
+        { label: "Briser la gr\xE8ve", hint: () => "+nationalistes, \u2212concorde", apply: (c, w, n) => (bump(n, "militaire", 0.04), bump(n, "peuple", 0.03), stab(n, -0.08), "La police disperse les piquets de gr\xE8ve.") }
+      ]
+    },
+    {
+      id: "corruption",
+      role: "argentier",
+      when: (w, n) => n.treasury > 300,
+      setup: (w, n) => ({ sum: Math.round(n.treasury * 0.15) }),
+      title: () => "Des comptes qui ne tombent pas juste",
+      text: (c, w, n) => `Le grand argentier a d\xE9couvert qu'environ ${c.sum} ${cur(n)} se sont \xE9vapor\xE9s des caisses. Les soup\xE7ons se portent sur de hauts dignitaires.`,
+      options: [
+        { label: "Ouvrir une enqu\xEAte publique", hint: () => "\u2212tradition, +l\xE9gitimit\xE9", apply: (c, w, n) => (bump(n, "tradition", -0.04), legit(n, 0.08), n.treasury += c.sum * 0.5, "Plusieurs dignitaires sont jug\xE9s et condamn\xE9s.") },
+        { label: "\xC9touffer l'affaire", hint: (c, w, n) => `\u2212${c.sum} ${cur(n)}, +tradition`, apply: (c, w, n) => (n.treasury -= c.sum, bump(n, "tradition", 0.03), "L'affaire est class\xE9e.") }
+      ]
+    },
+    {
+      id: "expedition",
+      role: "chancelier",
+      when: (w, n) => w.citiesOf(n).some((c) => c.buildings.port) && n.treasury > 80,
+      setup: (w, n) => ({ city: w.citiesOf(n).find((c) => c.buildings.port) }),
+      title: (c) => `Une exp\xE9dition au d\xE9part de ${c.city.name}`,
+      text: (c) => `Un capitaine audacieux veut cingler vers l'horizon depuis ${c.city.name}. Il jure de revenir charg\xE9 d'\xE9pices et de cartes nouvelles.`,
+      options: [
+        { label: "Armer trois navires", hint: (c, w, n) => `\u221280 ${cur(n)}, gain incertain`, apply: (c, w, n) => {
+          if (n.treasury -= 80, w.rng.chance(0.6)) {
+            let g = Math.round(100 + w.rng.next() * 250);
+            return n.treasury += g, n.tech += 10, `L'exp\xE9dition revient triomphante : +${g} ${cur(n)} !`;
+          }
+          return "Les navires ne sont jamais revenus.";
+        } },
+        { label: "Refuser", hint: () => "rien", apply: () => "Le capitaine boit son d\xE9pit sur le port." }
+      ]
+    }
+  ];
+  function rollChoice(world2, n) {
+    let ok = CHOICES.filter((e) => {
+      try {
+        return e.when(world2, n);
+      } catch {
+        return !1;
+      }
+    });
+    if (!ok.length) return null;
+    let ev = ok[Math.floor(world2.rng.next() * ok.length)], ctx = ev.setup(world2, n);
+    if (Object.values(ctx).some((v) => v == null)) return null;
+    let adv = n.court.find((m) => m.role === ev.role);
+    return { ev, ctx, nid: n.id, adv };
+  }
+  function resolveChoice(world2, choice, k) {
+    let n = world2.nations[choice.nid], opt = choice.ev.options[k], res = opt.apply(choice.ctx, world2, n);
+    return world2.log("decision", { w: 5, nations: [n.id], title: choice.ev.title(choice.ctx, world2, n), text: `D\xE9cision : ${opt.label.toLowerCase()}. ${res}`, body: `${choice.ev.text(choice.ctx, world2, n)} Le souverain a tranch\xE9 : ${opt.label.toLowerCase()}. ${res}` }), world2.pendingChoice = null, res;
+  }
+
   // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/main.js
   var $ = (id) => document.getElementById(id), esc2 = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]), fmt = (n) => Math.round(n).toLocaleString("fr"), DAYS_PER_SEC = [0, 15, 60, 240, 720], world, renderer, ui = { selCity: null, selNation: null, speed: 0, mode: "pick", lastUi: 0, featCache: /* @__PURE__ */ new Map(), lastYear: null };
   function seedFromUrl() {
@@ -1897,7 +2325,9 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
   }
   function newWorld(seed) {
     $("introMsg").textContent = "G\xE9n\xE9ration du continent\u2026", $("intro").hidden = !1, setTimeout(() => {
-      world = new World(seed), $("seed").value = seed, renderer ? renderer.setWorld(world) : renderer = new Renderer($("map"), world), ui.selCity = null, ui.selNation = null, ui.mode = "pick", ui.lastYear = world.year, setSpeed(0), $("left").hidden = !0, $("right").hidden = !0, $("ticker").innerHTML = "", $("introMsg").innerHTML = `<b>${world.nations.length} peuples</b> s'\xE9veillent en ${fmtYear(world.year)}.<br>Cliquez sur une nation pour la gouverner.`;
+      world = new World(seed), world.onChoice = (n) => {
+        world.pendingChoice = rollChoice(world, n);
+      }, $("seed").value = seed, renderer ? renderer.setWorld(world) : renderer = new Renderer($("map"), world), ui.selCity = null, ui.selNation = null, ui.mode = "pick", ui.lastYear = world.year, setSpeed(0), $("left").hidden = !0, $("right").hidden = !0, $("ticker").innerHTML = "", $("introMsg").innerHTML = `<b>${world.nations.length} peuples</b> s'\xE9veillent en ${fmtYear(world.year)}.<br>Cliquez sur une nation pour la gouverner.`;
       try {
         history.replaceState(null, "", `?seed=${seed}`);
       } catch {
@@ -1929,13 +2359,16 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     <div class="sub">${REG(n)} \xB7 ${L.age} ans \xB7 ${L.party ? `parti ${esc2(L.party)}` : `maison ${esc2(L.dynasty)}`} \xB7 depuis ${fmtYear(L.since)}</div>
     <div class="traits">${L.traits.map((t) => `<span>${TRAITS[t]}</span>`).join("")}</div>`;
   }
+  function courtHtml(n) {
+    return n.court ? `<h3>La cour</h3><div class="court">${n.court.map((m) => `<div><b>${world.courtTitle(m.role, n.era, m.L.female)}</b> \xB7 ${esc2(m.L.name)} (${m.L.age} ans)</div>`).join("")}</div>` : "";
+  }
   var REG = (n) => `${n.regime} de ${esc2(n.name)}`;
   function nationHtml(n, mine) {
-    let cs = world.citiesOf(n), pop = cs.reduce((s, c) => s + c.pop, 0), cur = ERAS[n.era].currency, wars = world.warsOf(n.id).map((w) => world.nations[w.a === n.id ? w.b : w.a].name), nextEra = ERAS[n.era + 1], h = `<h3>${esc2(n.name)}</h3><div class="kv">
+    let cs = world.citiesOf(n), pop = cs.reduce((s, c) => s + c.pop, 0), cur2 = ERAS[n.era].currency, wars = world.warsOf(n.id).map((w) => world.nations[w.a === n.id ? w.b : w.a].name), nextEra = ERAS[n.era + 1], h = `<h3>${esc2(n.name)}</h3><div class="kv">
     <span>\xC8re</span><span>${ERAS[n.era].name}${nextEra ? ` <small>(${Math.round((n.tech - ERAS[n.era].tech) / (nextEra.tech - ERAS[n.era].tech) * 100)} % \u2192 ${nextEra.name})</small>` : ""}</span>
     <span>Population</span><span>${fmt(pop)}</span>
     <span>Villes</span><span>${cs.length}</span>
-    <span>Tr\xE9sor</span><span>${fmt(n.treasury)} ${cur} <small class="${n.income - n.expense >= 0 ? "up" : "down"}">(${n.income - n.expense >= 0 ? "+" : ""}${(n.income - n.expense).toFixed(1)}/mois)</small></span>
+    <span>Tr\xE9sor</span><span>${fmt(n.treasury)} ${cur2} <small class="${n.income - n.expense >= 0 ? "up" : "down"}">(${n.income - n.expense >= 0 ? "+" : ""}${(n.income - n.expense).toFixed(1)}/mois)</small></span>
     <span>Arm\xE9e</span><span>${fmt(n.army * 10)} hommes</span>
     <span>Guerres</span><span>${wars.length ? wars.map(esc2).join(", ") : "aucune"}</span>
   </div>
@@ -1957,19 +2390,19 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     return h;
   }
   function cityHtml(c) {
-    let n = world.nations[c.nation], mine = c.nation === world.player, cur = ERAS[n.era].currency, bl = Object.keys(BUILDINGS).map((k) => {
+    let n = world.nations[c.nation], mine = c.nation === world.player, cur2 = ERAS[n.era].currency, bl = Object.keys(BUILDINGS).map((k) => {
       let b = BUILDINGS[k], nm = k === "temple" ? TEMPLE_NAMES[n.era] : b.name;
       if (c.buildings[k]) return `<li>\u2714 ${nm} <small>(${fmtYear(c.buildings[k])})</small></li>`;
       if (!mine) return "";
       let why = world.canBuild(c, k);
-      return why && why.startsWith("requiert") || why === "ville non c\xF4ti\xE8re" ? "" : `<li><button class="btn" data-build="${k}" ${why ? "disabled" : ""} title="${esc2(b.desc)}">${nm} \u2014 ${b.cost(c)} ${cur}</button></li>`;
+      return why && why.startsWith("requiert") || why === "ville non c\xF4ti\xE8re" ? "" : `<li><button class="btn" data-build="${k}" ${why ? "disabled" : ""} title="${esc2(b.desc)}">${nm} \u2014 ${b.cost(c)} ${cur2}</button></li>`;
     }).join(""), goods = GOODS.map((g, k) => `<tr><td>${g.name}</td><td>${c.stock[k].toFixed(1)}</td><td class="${c.price[k] > g.base * 1.2 ? "down" : c.price[k] < g.base * 0.8 ? "up" : ""}">${c.price[k].toFixed(2)}</td></tr>`).join(""), roads = [...world.adj.get(c.id) || []].map((o) => esc2(world.cities[o].name)).join(", "), isCap = n.capital === c.id;
     return `<h2>${isCap ? "\u265B " : ""}${esc2(c.name)}</h2>
     <div class="sub">${isCap ? "Capitale" : "Ville"} de ${esc2(n.name)} \xB7 fond\xE9e en ${fmtYear(c.founded)}</div>
     <div class="kv">
       <span>Population</span><span>${fmt(c.pop)} <small>(capacit\xE9 ${fmt(c.K)})</small></span>
       <span>Site</span><span>${[c.coastal && "c\xF4tier", c.river && "fluvial"].filter(Boolean).join(", ") || "int\xE9rieur"}</span>
-      <span>Commerce</span><span>${c.tradeEMA.toFixed(2)} ${cur}/mois</span>
+      <span>Commerce</span><span>${c.tradeEMA.toFixed(2)} ${cur2}/mois</span>
       <span>Routes</span><span>${roads || "aucune"}</span>
       ${c.shortage > 0.05 ? `<span>Famine</span><span class="down">${Math.round(c.shortage * 100)} %</span>` : ""}
     </div>
@@ -1999,8 +2432,8 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
     $("date").textContent = world.dateStr();
     let me = world.nations[world.player];
     if ($("era").textContent = me ? `${ERAS[me.era].name}` : "Choisissez une nation", me) {
-      let cur = ERAS[me.era].currency;
-      $("stats").innerHTML = `<span style="color:rgb(${me.color})">\u25A0</span> <b>${esc2(me.name)}</b><span>\u{1F4B0} ${fmt(me.treasury)} ${cur}</span><span>\u{1F465} ${fmt(me.pop || 0)}</span><span>\u2696 ${Math.round(me.stability * 100)} %</span>`, $("leader").innerHTML = leaderHtml(me), (force || !document.activeElement || document.activeElement.id !== "tax") && ($("nation").innerHTML = nationHtml(me, !0));
+      let cur2 = ERAS[me.era].currency;
+      $("stats").innerHTML = `<span style="color:rgb(${me.color})">\u25A0</span> <b>${esc2(me.name)}</b><span>\u{1F4B0} ${fmt(me.treasury)} ${cur2}</span><span>\u{1F465} ${fmt(me.pop || 0)}</span><span>\u2696 ${Math.round(me.stability * 100)} %</span>`, $("leader").innerHTML = leaderHtml(me), (force || !document.activeElement || document.activeElement.id !== "tax") && ($("nation").innerHTML = nationHtml(me, !0) + courtHtml(me));
     }
     if (!$("right").hidden) {
       if (ui.selCity != null) showRight(cityHtml(world.cities[ui.selCity]));
@@ -2028,12 +2461,12 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
   function frame(now) {
     let dt = Math.min(0.25, (now - last) / 1e3);
     if (last = now, world) {
-      if (ui.speed > 0 && ui.mode === "play" && $("gazette").hidden) {
+      if (ui.speed > 0 && ui.mode === "play" && $("gazette").hidden && $("choice").hidden) {
         acc += dt * DAYS_PER_SEC[ui.speed];
         let steps = 0;
         for (; acc >= 1 && steps < 1e3; )
           world.stepDay(), acc -= 1, steps++;
-        handleNewEvents(), world.year !== ui.lastYear && newYear();
+        handleNewEvents(), world.year !== ui.lastYear && newYear(), world.pendingChoice && $("choice").hidden && showChoice();
       }
       renderer.draw(ui);
       let me = world.nations[world.player];
@@ -2041,9 +2474,20 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
         let cv = $("portrait"), ctx = cv.getContext("2d");
         ctx.setTransform(1, 0, 0, 1, 0, 0), ctx.clearRect(0, 0, cv.width, cv.height), drawPortrait(ctx, me.leader, feats(me), { nationColor: me.color, era: me.era, regime: me.regime, mood: (me.stability - 0.5) * 2 }, (now - t0) / 1e3, cv.width, cv.height);
       }
+      if (!$("choice").hidden && world.pendingChoice) {
+        let ch = world.pendingChoice, n = world.nations[ch.nid], cv = $("advisor"), ctx = cv.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0), ctx.clearRect(0, 0, cv.width, cv.height), drawPortrait(ctx, ch.adv.L, personFeats(ch.adv.L, n), { nationColor: n.color, era: n.era, regime: "Conseil", mood: 0 }, (now - t0) / 1e3 + 3, cv.width, cv.height);
+      }
       now - ui.lastUi > 300 && (ui.lastUi = now, refreshUi());
     }
     requestAnimationFrame(frame);
+  }
+  function personFeats(L, n) {
+    return ui.featCache.has(L.seed) || ui.featCache.set(L.seed, features(L, n.culture)), ui.featCache.get(L.seed);
+  }
+  function showChoice() {
+    let ch = world.pendingChoice, n = world.nations[ch.nid];
+    $("chTitle").textContent = ch.ev.title(ch.ctx, world, n), $("chText").textContent = ch.ev.text(ch.ctx, world, n), $("advName").textContent = `${world.courtTitle(ch.adv.role, n.era, ch.adv.L.female)} ${ch.adv.L.name}, ${ch.adv.L.age} ans`, $("chOpts").innerHTML = ch.ev.options.map((o, k) => `<button class="btn" data-choice="${k}">${esc2(o.label)}<small>${esc2(o.hint(ch.ctx, world, n))}</small></button>`).join(""), $("choice").hidden = !1;
   }
   function handleNewEvents() {
     let evs = world.newEvents.splice(0);
@@ -2142,6 +2586,11 @@ input[type=range] { width: 100%; accent-color: var(--ink2); }
       let b = e.target.closest("button");
       if (!b || !world) return;
       let me = world.nations[world.player];
+      if (b.dataset.choice != null) {
+        let res = resolveChoice(world, world.pendingChoice, +b.dataset.choice);
+        $("choice").hidden = !0, toast(res, 4e3), refreshUi(!0);
+        return;
+      }
       if (b.dataset.build) {
         let c = world.cities[ui.selCity], err = world.build(c, b.dataset.build);
         toast(err ? `Impossible : ${err}` : `Chantier lanc\xE9 \xE0 ${c.name}.`), refreshUi(!0);

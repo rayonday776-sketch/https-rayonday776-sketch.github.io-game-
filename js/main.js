@@ -5,6 +5,7 @@ import { BIOME_NAMES } from './terrain.js';
 import { features, drawPortrait } from './portrait.js';
 import { buildIssue, renderIssue, paintEngraving } from './gazette.js';
 import { cityRadius } from './city.js';
+import { rollChoice, resolveChoice } from './events.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -24,6 +25,7 @@ function newWorld(seed) {
   $('intro').hidden = false;
   setTimeout(() => {
     world = new World(seed);
+    world.onChoice = n => { world.pendingChoice = rollChoice(world, n); };
     $('seed').value = seed;
     if (!renderer) renderer = new Renderer($('map'), world); else renderer.setWorld(world);
     ui.selCity = null; ui.selNation = null; ui.mode = 'pick'; ui.lastYear = world.year; setSpeed(0);
@@ -66,6 +68,10 @@ function leaderHtml(n) {
   return `<h2>${esc(world.leaderTitle(n))} ${esc(world.leaderFull(n))}</h2>
     <div class="sub">${REG(n)} · ${L.age} ans · ${L.party ? `parti ${esc(L.party)}` : `maison ${esc(L.dynasty)}`} · depuis ${fmtYear(L.since)}</div>
     <div class="traits">${L.traits.map(t => `<span>${TRAITS[t]}</span>`).join('')}</div>`;
+}
+function courtHtml(n) {
+  if (!n.court) return '';
+  return `<h3>La cour</h3><div class="court">${n.court.map(m => `<div><b>${world.courtTitle(m.role, n.era, m.L.female)}</b> · ${esc(m.L.name)} (${m.L.age} ans)</div>`).join('')}</div>`;
 }
 const REG = n => `${n.regime} de ${esc(n.name)}`;
 
@@ -162,7 +168,7 @@ function refreshUi(force) {
     $('stats').innerHTML = `<span style="color:rgb(${me.color})">■</span> <b>${esc(me.name)}</b><span>💰 ${fmt(me.treasury)} ${cur}</span><span>👥 ${fmt(me.pop || 0)}</span><span>⚖ ${Math.round(me.stability * 100)} %</span>`;
     $('leader').innerHTML = leaderHtml(me);
     // ne pas recréer le curseur pendant qu'on le manipule
-    if (force || !document.activeElement || document.activeElement.id !== 'tax') $('nation').innerHTML = nationHtml(me, true);
+    if (force || !document.activeElement || document.activeElement.id !== 'tax') $('nation').innerHTML = nationHtml(me, true) + courtHtml(me);
   }
   if (!$('right').hidden) {
     if (ui.selCity != null) showRight(cityHtml(world.cities[ui.selCity]));
@@ -192,12 +198,13 @@ let last = performance.now(), acc = 0, t0 = performance.now();
 function frame(now) {
   const dt = Math.min(0.25, (now - last) / 1000); last = now;
   if (world) {
-    if (ui.speed > 0 && ui.mode === 'play' && $('gazette').hidden) {
+    if (ui.speed > 0 && ui.mode === 'play' && $('gazette').hidden && $('choice').hidden) {
       acc += dt * DAYS_PER_SEC[ui.speed];
       let steps = 0;
       while (acc >= 1 && steps < 1000) { world.stepDay(); acc -= 1; steps++; }
       handleNewEvents();
       if (world.year !== ui.lastYear) newYear();
+      if (world.pendingChoice && $('choice').hidden) showChoice();
     }
     renderer.draw(ui);
     // portrait animé
@@ -207,9 +214,28 @@ function frame(now) {
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
       drawPortrait(ctx, me.leader, feats(me), { nationColor: me.color, era: me.era, regime: me.regime, mood: (me.stability - 0.5) * 2 }, (now - t0) / 1000, cv.width, cv.height);
     }
+    if (!$('choice').hidden && world.pendingChoice) {
+      const ch = world.pendingChoice, n = world.nations[ch.nid];
+      const cv = $('advisor'), ctx = cv.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      drawPortrait(ctx, ch.adv.L, personFeats(ch.adv.L, n), { nationColor: n.color, era: n.era, regime: 'Conseil', mood: 0 }, (now - t0) / 1000 + 3, cv.width, cv.height);
+    }
     if (now - ui.lastUi > 300) { ui.lastUi = now; refreshUi(); }
   }
   requestAnimationFrame(frame);
+}
+
+function personFeats(L, n) {
+  if (!ui.featCache.has(L.seed)) ui.featCache.set(L.seed, features(L, n.culture));
+  return ui.featCache.get(L.seed);
+}
+function showChoice() {
+  const ch = world.pendingChoice, n = world.nations[ch.nid];
+  $('chTitle').textContent = ch.ev.title(ch.ctx, world, n);
+  $('chText').textContent = ch.ev.text(ch.ctx, world, n);
+  $('advName').textContent = `${world.courtTitle(ch.adv.role, n.era, ch.adv.L.female)} ${ch.adv.L.name}, ${ch.adv.L.age} ans`;
+  $('chOpts').innerHTML = ch.ev.options.map((o, k) => `<button class="btn" data-choice="${k}">${esc(o.label)}<small>${esc(o.hint(ch.ctx, world, n))}</small></button>`).join('');
+  $('choice').hidden = false;
 }
 
 function handleNewEvents() {
@@ -345,6 +371,11 @@ function setupInput() {
   document.body.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !world) return;
     const me = world.nations[world.player];
+    if (b.dataset.choice != null) {
+      const res = resolveChoice(world, world.pendingChoice, +b.dataset.choice);
+      $('choice').hidden = true; toast(res, 4000); refreshUi(true);
+      return;
+    }
     if (b.dataset.build) {
       const c = world.cities[ui.selCity];
       const err = world.build(c, b.dataset.build);

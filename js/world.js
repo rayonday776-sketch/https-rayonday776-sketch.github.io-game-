@@ -66,6 +66,11 @@ function hsl(h, s, l) {
   return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
 }
 
+export const COURT_ROLES = ['chancelier', 'marechal', 'argentier', 'pretre'];
+export const COURT_TITLES = {
+  chancelier: ['Chancelier', 'Premier ministre'], marechal: ['Maréchal', 'Chef d\'état-major'],
+  argentier: ['Grand argentier', 'Ministre des Finances'], pretre: ['Grand prêtre', 'Archevêque'],
+};
 export const fmtYear = y => y < 0 ? `${-y} av. J.-C.` : `${y}`;
 export const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
@@ -155,6 +160,17 @@ export class World {
     }
     return L;
   }
+  makePerson(n, female) {
+    const r = this.rng, keys = Object.keys(TRAITS);
+    const traits = [];
+    while (traits.length < 2) { const t = r.pick(keys); if (!traits.includes(t)) traits.push(t); }
+    female = female ?? r.chance(0.25);
+    return { name: NM.personName(n.culture, r, female), female, age: r.int(28, 60), traits, dynasty: NM.dynastyName(n.culture, r), seed: r.int(1, 1e9), since: this.year };
+  }
+  courtTitle(role, era, female) {
+    const t = COURT_TITLES[role][era >= 4 ? 1 : 0];
+    return female ? t.replace(/^Grand /, 'Grande ').replace(/ier$/, 'ière').replace(/^Chancelier/, 'Chancelière') : t;
+  }
   leaderTitle(n) {
     const L = n.leader; const t = REGIMES[n.regime].titles[L.female ? 1 : 0];
     if ((n.regime === 'République') && n.era >= 3) return L.female ? 'Présidente' : 'Président';
@@ -179,6 +195,7 @@ export class World {
     };
     this.nations.push(n);
     n.leader = this.makeLeader(n);
+    n.court = COURT_ROLES.map(role => ({ role, L: this.makePerson(n) }));
     capital.nation = id;
     return n;
   }
@@ -323,15 +340,20 @@ export class World {
 
   // ---------- territoire ----------
   cityStrength(c) { return 1 + Math.log10(Math.max(100, c.pop)) * 0.4; }
-  cityReach(c) { const n = this.nations[c.nation]; return 4 + Math.log10(Math.max(100, c.pop)) * 2.4 + (n ? n.era : 0) * 0.9; }
+  cityReach(c) { const n = this.nations[c.nation]; return 6 + Math.log10(Math.max(100, c.pop)) * 3 + (n ? n.era : 0) * 1.4; }
+  // Territoire : chaque ville rayonne selon sa taille ; les terres déjà tenues coûtent moins cher à garder
+  // et plus cher à prendre (frontières stables qui ne bougent que sous pression), les fleuves et
+  // montagnes font frontière, puis lissage et suppression des enclaves sans ville.
   updateTerritory() {
     const { W, H } = this, T = this.T, N = W * H;
+    const prev = this.cellNation;
     const dist = new Float32Array(N).fill(Infinity), raw = new Float32Array(N);
-    const own = new Int32Array(N).fill(-1);
+    let own = new Int32Array(N).fill(-1);
     const heap = new Heap();
     const alive = this.cities.filter(c => c.alive);
-    const str = [], reach = [];
-    for (const c of alive) { str[c.id] = this.cityStrength(c); reach[c.id] = this.cityReach(c); dist[c.i] = 0; own[c.i] = c.id; heap.push(0, c.i); }
+    const str = [], reach = [], nat = [];
+    const cityCell = new Uint8Array(N);
+    for (const c of alive) { str[c.id] = this.cityStrength(c); reach[c.id] = this.cityReach(c); nat[c.id] = c.nation; dist[c.i] = 0; own[c.i] = c.id; heap.push(0, c.i); cityCell[c.i] = 1; }
     while (heap.size) {
       const c = heap.pop(); const d = heap.lastKey;
       if (d > dist[c]) continue;
@@ -344,16 +366,67 @@ export class World {
         let mc = MOVE[T.biome[n]];
         if (!isFinite(mc)) continue;
         if (this.roadCell[n]) mc *= 0.6;
+        else if (T.river[n]) mc += 1.2;
         mc *= (k > 3 ? 1.414 : 1);
         const nr = raw[c] + mc;
         if (nr > reach[cid]) continue;
-        const nd = d + mc / str[cid];
+        let w = mc / str[cid];
+        if (prev) { const p = prev[n]; if (p === nat[cid]) w *= 0.55; else if (p >= 0) w *= 1.6; }
+        const nd = d + w;
         if (nd < dist[n]) { dist[n] = nd; raw[n] = nr; own[n] = cid; heap.push(nd, n); }
       }
     }
+    let cn = new Int16Array(N).fill(-1);
+    for (let i = 0; i < N; i++) if (own[i] >= 0) cn[i] = nat[own[i]];
+    // lissage : majorité des voisins terrestres
+    const vals = new Int16Array(8), cnts = new Uint8Array(8), owns = new Int32Array(8);
+    for (let it = 0; it < 2; it++) {
+      const cn2 = Int16Array.from(cn), own2 = Int32Array.from(own);
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (cityCell[i] || !isFinite(MOVE[T.biome[i]])) continue;
+        let m = 0;
+        for (let k = 0; k < 8; k++) {
+          const j = i + NEI8[k][1] * W + NEI8[k][0];
+          if (!isFinite(MOVE[T.biome[j]])) continue;
+          const v = cn[j]; let q = 0;
+          while (q < m && vals[q] !== v) q++;
+          if (q === m) { vals[m] = v; cnts[m] = 0; owns[m] = own[j]; m++; }
+          cnts[q]++;
+        }
+        let best = -1; for (let q = 0; q < m; q++) if (best < 0 || cnts[q] > cnts[best]) best = q;
+        if (best >= 0 && cnts[best] >= 5 && vals[best] !== cn[i]) { cn2[i] = vals[best]; own2[i] = owns[best]; }
+      }
+      cn = cn2; own = own2;
+    }
+    // enclaves : une poche de territoire sans aucune ville de sa nation rejoint son voisin majoritaire
+    const seen = new Uint8Array(N), stack = new Int32Array(N);
+    for (let s0 = 0; s0 < N; s0++) {
+      if (seen[s0] || cn[s0] < 0) continue;
+      const nid = cn[s0]; let sp = 0, hasCity = false; const comp = [];
+      const border = new Map();
+      stack[sp++] = s0; seen[s0] = 1;
+      while (sp) {
+        const c = stack[--sp]; comp.push(c);
+        if (cityCell[c] && nat[own[c]] === nid) hasCity = true;
+        const cx = c % W, cy = (c / W) | 0;
+        for (let k = 0; k < 4; k++) {
+          const nx = cx + NEI8[k][0], ny = cy + NEI8[k][1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const n = ny * W + nx;
+          if (cn[n] === nid) { if (!seen[n]) { seen[n] = 1; stack[sp++] = n; } }
+          else if (isFinite(MOVE[T.biome[n]])) border.set(cn[n], (border.get(cn[n]) || 0) + 1);
+        }
+      }
+      if (hasCity) continue;
+      let bn = -1, bc = -1;
+      for (const [k, v] of border) if (v > bc) { bc = v; bn = k; }
+      let donor = -1;
+      if (bn >= 0) for (const c of comp) { const cx = c % W, cy = (c / W) | 0; for (let k = 0; k < 4 && donor < 0; k++) { const n = (cy + NEI8[k][1]) * W + cx + NEI8[k][0]; if (n >= 0 && n < N && cn[n] === bn) donor = own[n]; } if (donor >= 0) break; }
+      for (const c of comp) { cn[c] = bn; own[c] = bn >= 0 ? donor : -1; }
+    }
     this.cellCity = own;
-    const cn = this.cellNation = new Int16Array(N).fill(-1);
-    for (let i = 0; i < N; i++) if (own[i] >= 0) cn[i] = this.cities[own[i]].nation;
+    this.cellNation = cn;
     for (const n of this.nations) n.neighbors = new Set();
     for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) {
       const i = y * W + x, a = cn[i];
@@ -362,8 +435,14 @@ export class World {
         if (a >= 0 && b >= 0 && a !== b) { this.nations[a].neighbors.add(b); this.nations[b].neighbors.add(a); }
       }
     }
-    // voisins maritimes proches (ports)
     this.territoryVersion++;
+  }
+  // transfère immédiatement les terres d'une ville (conquête, sécession) avant recalcul
+  flipLands(cityIds, nid) {
+    if (!this.cellNation) return;
+    const set = new Set(cityIds);
+    for (let i = 0; i < this.cellCity.length; i++) if (set.has(this.cellCity[i])) this.cellNation[i] = nid;
+    this.updateTerritory();
   }
 
   computeProduction(c) {
@@ -387,6 +466,7 @@ export class World {
   // ---------- simulation ----------
   stepDay() {
     this.day++;
+    if (this.wars.length) this.moveUnits();
     if (this.day % 30 === 0) this.monthly();
   }
 
@@ -511,7 +591,9 @@ export class World {
   declareWar(a, b) {
     if (a === b || this.atWar(a, b)) return false;
     const A = this.nations[a], Bn = this.nations[b];
-    this.wars.push({ a, b, start: this.year, months: 0, score: 0 });
+    const w = { a, b, start: this.year, months: 0, score: 0, units: { a: { nation: a, path: null, pos: 0, target: -1, state: 'march' }, b: { nation: b, path: null, pos: 0, target: -1, state: 'march' } } };
+    this.wars.push(w);
+    this.planUnit(w, 'a'); this.planUnit(w, 'b');
     A.rel[b] = Math.min(A.rel[b] ?? 0, -60); Bn.rel[a] = Math.min(Bn.rel[a] ?? 0, -60);
     A.pacts?.delete(b); Bn.pacts?.delete(a);
     this.log('guerre', { w: 9, nations: [a, b], title: `${A.name} déclare la guerre à ${Bn.name} !`, text: `${this.leaderTitle(A)} ${this.leaderFull(A)} lance ses armées contre ${Bn.name}.`, body: `Les tambours résonnent aux frontières. ${A.name} aligne environ ${Math.round(A.army * 10).toLocaleString('fr')} soldats face aux ${Math.round(Bn.army * 10).toLocaleString('fr')} de ${Bn.name}. Les marchands ferment leurs comptoirs.` });
@@ -534,41 +616,103 @@ export class World {
     return false;
   }
 
+  // ---------- armées en campagne ----------
+  unitXY(u) {
+    if (!u.path) return null;
+    const W = this.W, L = u.path.length;
+    const k = Math.max(0, Math.min(L - 1, Math.floor(u.pos))), f = Math.min(1, u.pos - k);
+    const a = u.path[k], b = u.path[Math.min(L - 1, k + 1)];
+    return [a % W + 0.5 + (b % W - a % W) * f, ((a / W) | 0) + 0.5 + (((b / W) | 0) - ((a / W) | 0)) * f];
+  }
+  planUnit(w, side) {
+    const u = w.units[side];
+    const me = this.nations[side === 'a' ? w.a : w.b], foe = this.nations[side === 'a' ? w.b : w.a];
+    const mine = this.citiesOf(me), theirs = this.citiesOf(foe);
+    u.path = null;
+    if (!mine.length || !theirs.length) return;
+    let start = null;
+    const cur = u._last != null ? u._last : null;
+    let best = null, bd = Infinity, from = null;
+    for (const t of theirs) {
+      if (cur != null) { const d = Math.hypot(t.x - cur % this.W, t.y - ((cur / this.W) | 0)); if (d < bd) { bd = d; best = t; from = cur; } }
+      else for (const o of mine) { const d = this.dist(o, t); if (d < bd) { bd = d; best = t; from = o.i; } }
+    }
+    if (!best || bd > 160) return;
+    start = from;
+    const res = this.findPath(start, best.i, 70000);
+    if (!res) return;
+    u.path = res.path; u.pos = 0; u.target = best.id; u.state = 'march'; u.siege = 0;
+  }
+  moveUnits() {
+    for (const w of this.wars) for (const side of ['a', 'b']) {
+      const u = w.units[side];
+      if (u.state === 'rest') { if (this.day % 30 === 0 && --u.rest <= 0) { u.state = 'march'; this.planUnit(w, side); } continue; }
+      if (!u.path || u.state !== 'march') continue;
+      const n = this.nations[u.nation];
+      u.pos += (3 + n.era * 0.6) / 30;
+      if (u.pos >= u.path.length - 1) { u.pos = u.path.length - 1; u.state = 'siege'; }
+      u._last = u.path[Math.floor(u.pos)];
+    }
+  }
   warsMonthly() {
+    this.battles = this.battles || [];
     for (const w of [...this.wars]) {
       const A = this.nations[w.a], Bn = this.nations[w.b];
       if (!A.alive || !Bn.alive) { this.wars = this.wars.filter(x => x !== w); continue; }
       w.months++;
-      const sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3);
-      const sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
-      A.army = Math.max(1, A.army - sb * 0.025); Bn.army = Math.max(1, Bn.army - sa * 0.025);
-      w.score += sa > sb ? 1 : -1;
-      A.exhaustion += 0.02; Bn.exhaustion += 0.02;
-      if (w.months % 3 === 0) {
-        const winner = sa > sb ? A : Bn, loser = winner === A ? Bn : A;
-        const ratio = Math.max(sa, sb) / Math.max(1, Math.min(sa, sb));
-        if (ratio > 1.15) this.tryCapture(winner, loser);
+      A.exhaustion += 0.015; Bn.exhaustion += 0.015;
+      for (const side of ['a', 'b']) {
+        const u = w.units[side], foe = side === 'a' ? Bn : A;
+        const t = this.cities[u.target];
+        if (u.state !== 'rest' && (!u.path || !t || !t.alive || t.nation !== foe.id)) this.planUnit(w, side);
+      }
+      const ua = w.units.a, ub = w.units.b, pa = this.unitXY(ua), pb = this.unitXY(ub);
+      if (!pa && !pb && w.months > 6) { this.makePeace(w, 'Aucune armée ne peut atteindre l\'ennemi : la guerre s\'éteint d\'elle-même.'); continue; }
+      // attrition de campagne
+      A.army = Math.max(1, A.army * 0.995); Bn.army = Math.max(1, Bn.army * 0.995);
+      if (pa && pb && Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < 2.5) {
+        // bataille rangée
+        const sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3);
+        const sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
+        A.army = Math.max(1, A.army - sb * 0.12); Bn.army = Math.max(1, Bn.army - sa * 0.12);
+        const winA = sa > sb, win = winA ? A : Bn, lose = winA ? Bn : A, lu = winA ? ub : ua;
+        w.score += winA ? 2 : -2;
+        lu.pos = Math.max(0, lu.pos - 7); lu.state = 'march';
+        const x = (pa[0] + pb[0]) / 2, y = (pa[1] + pb[1]) / 2;
+        const place = this.nearestCity(x, y);
+        this.battles.push({ x, y, year: this.year, month: this.month, a: w.a, b: w.b, win: win.id, t: this.day });
+        if (this.battles.length > 60) this.battles.shift();
+        this.log('bataille', { w: 5, nations: [w.a, w.b], title: `Bataille de ${place ? place.name : 'la plaine'}`, text: `Bataille près de ${place ? place.name : 'la frontière'} : victoire de ${win.name}.`, body: `Les armées de ${A.name} et de ${Bn.name} se sont affrontées près de ${place ? place.name : 'la frontière'}. ${win.name} reste maître du terrain ; les troupes de ${lose.name} se replient.` });
+      }
+      // sièges
+      for (const side of ['a', 'b']) {
+        const u = w.units[side];
+        if (u.state !== 'siege') continue;
+        const me = side === 'a' ? A : Bn, foe = side === 'a' ? Bn : A;
+        const t = this.cities[u.target];
+        if (!t || !t.alive || t.nation !== foe.id) { this.planUnit(w, side); continue; }
+        u.siege = (u.siege || 0) + 1;
+        const ratio = Math.max(0.3, Math.min(2.5, me.army / (foe.army * 0.6 + t.pop / 2000 + 1)));
+        const p = 0.045 * (t.buildings.muraille ? 0.4 : 1) * ratio;
+        if (this.rng.chance(p)) {
+          w.score += side === 'a' ? 3 : -3;
+          this.transferCity(t, me, 'conquest');
+          u._last = t.i; u.state = 'rest'; u.rest = 6; // l'armée se refait dans la ville prise
+        } else if (u.siege === 1 || (t.buildings.muraille && this.rng.chance(0.15))) {
+          this.log('siege', { w: 4, nations: [me.id, foe.id], city: t.id, text: u.siege === 1 ? `Les troupes de ${me.name} mettent le siège devant ${t.name}.` : `Les murailles de ${t.name} tiennent bon face à ${me.name}.` });
+        }
       }
       if (!A.alive || !Bn.alive) { this.wars = this.wars.filter(x => x !== w); continue; }
-      const tired = w.months > 12 && this.rng.chance(0.03 + Math.abs(w.score) * 0.004 + w.months * 0.0008);
+      const tired = w.months > 12 && this.rng.chance(0.03 + Math.abs(w.score) * 0.003 + w.months * 0.0008);
       const ai = (w.a !== this.player && w.b !== this.player) || (A.auto && Bn.auto);
       if (tired && ai) this.makePeace(w);
       else if (tired && w.months > 30 && this.rng.chance(0.3)) this.makePeace(w, 'Épuisés, les deux camps signent une paix blanche.');
     }
   }
-
-  tryCapture(win, lose) {
-    const lc = this.citiesOf(lose), wc = this.citiesOf(win);
-    if (!lc.length || !wc.length) return;
+  nearestCity(x, y) {
     let best = null, bd = Infinity;
-    for (const c of lc) for (const o of wc) { const d = this.dist(c, o); if (d < bd) { bd = d; best = c; } }
-    if (!best || bd > 45) return;
-    const def = best.buildings.muraille ? 0.45 : 1;
-    if (!this.rng.chance(0.5 * def)) {
-      if (best.buildings.muraille && this.rng.chance(0.3)) this.log('siege', { w: 4, nations: [win.id, lose.id], city: best.id, text: `Les murailles de ${best.name} repoussent l'assaut de ${win.name}.` });
-      return;
-    }
-    this.transferCity(best, win, 'conquest');
+    for (const c of this.cities) if (c.alive) { const d = Math.hypot(c.x + 0.5 - x, c.y + 0.5 - y); if (d < bd) { bd = d; best = c; } }
+    return best;
   }
 
   transferCity(c, to, why) {
@@ -577,6 +721,7 @@ export class World {
     c.nation = to.id; c.pop *= why === 'conquest' ? 0.85 : 1;
     to.conquests++;
     this.cityVersion++;
+    this.flipLands([c.id], to.id);
     if (why === 'conquest') {
       this.log('conquete', { w: wasCapital ? 9 : 6, nations: [to.id, from.id], city: c.id, title: `${c.name} tombe aux mains de ${to.name}`, text: `${to.name} s'empare de ${c.name}${wasCapital ? `, capitale de ${from.name}` : ''}.`, body: `Après un siège éprouvant, les troupes de ${to.name} entrent dans ${c.name}. La population, estimée à ${Math.round(c.pop).toLocaleString('fr')} âmes, attend le sort que lui réserve son nouveau maître.` });
     }
@@ -609,6 +754,15 @@ export class World {
       if (era > n.era) this.enterEra(n, era);
       // dirigeant
       n.leader.age++;
+      n.court = n.court || COURT_ROLES.map(role => ({ role, L: this.makePerson(n) }));
+      for (const m of n.court) {
+        m.L.age++;
+        if (this.rng.chance(m.L.age > 65 ? 0.12 : 0.02)) {
+          const old = m.L; m.L = this.makePerson(n);
+          if (n.id === this.player) this.log('cour', { w: 3, nations: [n.id], text: `${this.courtTitle(m.role, n.era, old.female)} ${old.name} quitte la cour ; ${m.L.name} ${m.L.female ? 'la' : 'le'} remplace.` });
+        }
+      }
+      if (n.id === this.player && !n.auto && !this.pendingChoice && this.rng.chance(0.45) && this.onChoice) this.onChoice(n);
       const a = n.leader.age;
       const p = a < 35 ? 0.006 : a < 50 ? 0.014 : a < 62 ? 0.035 : a < 72 ? 0.08 : 0.17;
       if (r.chance(p)) this.leaderDies(n);
@@ -643,7 +797,45 @@ export class World {
       }
     }
     this.updateTerritory();
+    this.resolveEnclaves();
     for (const c of this.cities) if (c.alive) this.computeProduction(c);
+  }
+
+  // Une poche isolée (coupée de la capitale et entourée par un seul voisin) finit par se rallier à lui.
+  resolveEnclaves() {
+    const { W, H } = this, cn = this.cellNation, N = W * H;
+    const seen = new Uint8Array(N), cityAt = new Map();
+    for (const c of this.cities) if (c.alive) cityAt.set(c.i, c);
+    let changed = false;
+    for (let s0 = 0; s0 < N; s0++) {
+      if (seen[s0] || cn[s0] < 0) continue;
+      const nid = cn[s0], st = [s0], cs = [], border = new Map();
+      let size = 0, hasCap = false; seen[s0] = 1;
+      while (st.length) {
+        const c = st.pop(); size++;
+        const city = cityAt.get(c);
+        if (city && city.nation === nid) { cs.push(city); if (this.nations[nid].capital === city.id) hasCap = true; }
+        const x = c % W, y = (c / W) | 0;
+        for (let k = 0; k < 4; k++) {
+          const nx = x + NEI8[k][0], ny = y + NEI8[k][1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const n = ny * W + nx;
+          if (cn[n] === nid) { if (!seen[n]) { seen[n] = 1; st.push(n); } }
+          else if (isFinite(MOVE[this.T.biome[n]])) border.set(cn[n], (border.get(cn[n]) || 0) + 1);
+        }
+      }
+      if (hasCap || !cs.length || size > 260) continue;
+      let tot = 0, bn = -1, bc = 0;
+      for (const [k, v] of border) { tot += v; if (v > bc) { bc = v; bn = k; } }
+      if (bn < 0 || bc < tot * 0.7 || this.atWar(nid, bn) || !this.rng.chance(0.2)) continue;
+      const from = this.nations[nid], to = this.nations[bn];
+      for (const c of cs) c.nation = bn;
+      changed = true;
+      this.cityVersion++;
+      this.log('ralliement', { w: nid === this.player || bn === this.player ? 7 : 4, nations: [bn, nid], city: cs[0].id, title: `${cs[0].name} se rallie à ${to.name}`, text: `Coupée de ${from.name}, ${cs.map(c => c.name).join(', ')} se rallie à ${to.name}.`, body: `Isolée au milieu des terres de ${to.name}, ${cs[0].name} a fini par ouvrir ses portes. Les notables invoquent le commerce, les mariages et le bon sens.` });
+      if (!this.citiesOf(from).length) { from.alive = false; this.wars = this.wars.filter(w => w.a !== from.id && w.b !== from.id); }
+    }
+    if (changed) this.updateTerritory();
   }
 
   enterEra(n, era) {
@@ -712,6 +904,7 @@ export class World {
     rebel.nation = nn.id;
     n.stability += 0.1;
     this.cityVersion++;
+    this.flipLands(this.cities.filter(c => c.nation === nn.id).map(c => c.id), nn.id);
     this.log('secession', { w: 9, nations: [nn.id, n.id], city: rebel.id, title: `${rebel.name} proclame son indépendance`, text: `${rebel.name} fait sécession de ${n.name} et fonde ${nn.name}.`, body: `Lassés des impôts et de l'éloignement de ${cap.name}, les notables de ${rebel.name} proclament ${nn.name}. ${this.leaderTitle(nn)} ${this.leaderFull(nn)} en prend la tête.` });
     if (this.rng.chance(0.5)) this.declareWar(n.id, nn.id);
   }
@@ -836,7 +1029,7 @@ export class World {
       for (const nb of n.neighbors) {
         const o = this.nations[nb];
         if (!o.alive) continue;
-        const aggr = (T.includes('conquerant') ? 0.08 : 0.025) + (n.regime === 'Dictature' || n.regime === 'Empire' ? 0.03 : 0);
+        const aggr = (T.includes('conquerant') ? 0.05 : 0.012) + (n.regime === 'Dictature' || n.regime === 'Empire' ? 0.02 : 0);
         if ((n.rel[nb] ?? 0) < -35 && n.army > o.army * 1.25 && r.chance(aggr * 2)) { this.declareWar(n.id, nb); break; }
         if ((n.rel[nb] ?? 0) > 35 && !(n.pacts?.has(nb)) && r.chance(0.1) && nb !== this.player) this.proposePact(n.id, nb);
       }
