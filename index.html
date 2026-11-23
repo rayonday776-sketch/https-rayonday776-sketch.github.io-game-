@@ -22,6 +22,7 @@
     <button data-s="3" title="Vitesse 3">▶▶▶</button>
     <button data-s="4" title="Vitesse 4 (1 an ≈ 0,5 s)">⏩</button>
   </div>
+  <select id="mapMode" title="Mode de carte"><option value="politique">Carte politique</option><option value="religion">Religions</option><option value="economie">Cycles économiques</option><option value="relief">Relief</option></select>
   <div id="stats" class="stats"></div>
   <button id="btnGazette" class="btn">📰 Gazette</button>
   <button id="btnNew" class="btn">Nouveau monde</button>
@@ -56,6 +57,18 @@
   <div class="choiceCard">
     <div class="advisor"><canvas id="advisor" width="200" height="250"></canvas><div id="advName"></div></div>
     <div class="choiceBody"><h2 id="chTitle"></h2><p id="chText"></p><div id="chOpts"></div></div>
+  </div>
+</div>
+
+<div id="battle" class="overlay" hidden>
+  <div class="battleCard">
+    <div class="bfLeft"><canvas id="bfCanvas" width="640" height="360"></canvas><div id="bfResult"></div></div>
+    <div class="bfRight">
+      <h2 id="bfTitle"></h2>
+      <div id="bfContext"></div>
+      <div class="cmdRow"><div><canvas id="cmdA" width="120" height="150"></canvas><div id="cmdAName" class="small"></div></div><div class="vs">⚔</div><div><canvas id="cmdB" width="120" height="150"></canvas><div id="cmdBName" class="small"></div></div></div>
+      <div id="bfOpts"></div>
+    </div>
   </div>
 </div>
 

@@ -6,6 +6,9 @@ import { features, drawPortrait } from './portrait.js';
 import { buildIssue, renderIssue, paintEngraving } from './gazette.js';
 import { cityRadius } from './city.js';
 import { rollChoice, resolveChoice } from './events.js';
+import { PHASES, BUDGET } from './systems.js';
+import { STRATS, TERRAINS, availableStrats, estimate, drawBattlefield, marshalOf } from './battle.js';
+import { ROAD_LEVELS } from './world.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,6 +29,7 @@ function newWorld(seed) {
   setTimeout(() => {
     world = new World(seed);
     world.onChoice = n => { world.pendingChoice = rollChoice(world, n); };
+    world.onBattle = () => { ui.battleScene = null; };
     $('seed').value = seed;
     if (!renderer) renderer = new Renderer($('map'), world); else renderer.setWorld(world);
     ui.selCity = null; ui.selNation = null; ui.mode = 'pick'; ui.lastYear = world.year; setSpeed(0);
@@ -93,6 +97,7 @@ function nationHtml(n, mine) {
   <div class="small">Légitimité ${Math.round(n.legitimacy * 100)} %</div><div class="bar"><i style="width:${n.legitimacy * 100}%"></i></div>
   <h3>Forces politiques</h3>
   ${[...n.parties].sort((a, b) => b.support - a.support).map(p => `<div class="party"><span>${esc(p.name)}</span><span>${Math.round(p.support * 100)} %</span><div class="bar"><i style="width:${p.support * 100}%"></i></div></div>`).join('')}`;
+  h += econHtml(n, mine);
   if (mine) {
     const cc = world.colonyCost(n);
     h += `<h3>Gouvernement</h3>
@@ -103,8 +108,41 @@ function nationHtml(n, mine) {
       <button class="btn" data-act="capital">Voir la capitale</button>
       <button class="btn" data-act="auto">${n.auto ? '✔ ' : ''}Conseil automatique</button>
     </div>`;
+    h += budgetHtml(n);
+    const wars = world.warsOf(n.id);
+    if (wars.length) h += `<h3>Armées en campagne</h3>` + wars.map(w => { const side = w.a === n.id ? 'a' : 'b', u = w.units[side], foe = world.nations[side === 'a' ? w.b : w.a]; const t = world.cities[u.target]; return `<div class="small">Contre ${esc(foe.name)} : ${u.state === 'siege' ? 'siège de' : u.state === 'rest' ? 'repos à' : 'marche sur'} ${t ? esc(t.name) : '—'} <button class="btn" data-army="${world.wars.indexOf(w)}" data-side="${side}">Donner un ordre</button></div>`; }).join('');
   }
+  h += faithHtml(n, mine);
   return h;
+}
+
+function econHtml(n, mine) {
+  if (!n.budget) return '';
+  const ph = PHASES[n.phase], cur = ERAS[n.era].currency;
+  return `<h3>Économie</h3>
+    <div class="kv"><span>Conjoncture</span><span><span class="phase" style="background:${ph.color}">${ph.name}</span> <small>${n.growth >= 0 ? '+' : ''}${(n.growth || 0).toFixed(1)} %</small></span>
+    <span>Richesse (PIB)</span><span>${fmt(n.gdp * n.priceLevel)} ${cur}/an</span>
+    <span>Inflation</span><span class="${n.inflation > 8 ? 'down' : ''}">${n.inflation.toFixed(1)} %</span>
+    <span>Dette</span><span class="${n.debt > n.gdp * 1.5 ? 'down' : ''}">${fmt(n.debt)} ${cur} <small>(${Math.round(n.debt / Math.max(1, n.gdp) * 100)} % du PIB)</small></span>
+    ${n.cbank ? `<span>Taux directeur</span><span>${n.rate.toFixed(1)} %</span>` : ''}</div>
+    <canvas id="gdpSpark" width="260" height="40" data-n="${n.id}"></canvas>
+    ${mine && n.cbank ? `<div class="small">Banque centrale : <label><input type="checkbox" id="manualRate" ${n.manualRate ? 'checked' : ''}> fixer le taux moi-même</label></div>${n.manualRate ? `<input type="range" id="rate" min="0" max="20" step="0.5" value="${n.rate}">` : ''}` : ''}`;
+}
+function budgetHtml(n) {
+  const d = n.expenseDetail || {}, cur = ERAS[n.era].currency;
+  return `<h3>Budget de l'État</h3>` + Object.entries(BUDGET).map(([k, b]) => `<div class="lvl"><span>${b.name} : <b>${b.levels[n.budget[k]]}</b></span><span class="dots">${[0, 1, 2, 3].map(l => `<button data-budget="${k}" data-lvl="${l}" class="${n.budget[k] >= l && l > 0 ? 'on' : ''}" title="${b.levels[l]}"></button>`).join('')}</span><small>${(d[k] || 0).toFixed(1)} ${cur}/mois</small></div>`).join('')
+    + `<div class="small">Administration ${(d.admin || 0).toFixed(1)} · Intérêts ${(d.interets || 0).toFixed(1)} · Pertes ${(d.gaspillage || 0).toFixed(1)}</div>`;
+}
+function faithHtml(n, mine) {
+  if (!world.faiths) return '';
+  const f = world.faiths[n.faith];
+  const br = world.faithBreakdown(n), tot = br.reduce((s, x) => s + x[1], 0) || 1;
+  const allies = [...(n.allies || [])].filter(id => world.nations[id].alive).map(id => esc(world.nations[id].name));
+  const top = br[0];
+  return `<h3>Religion</h3><div class="small">Religion d'État : <b style="color:${f.color}">${esc(f.name)}</b></div>
+    ${br.slice(0, 4).map(([fid, p]) => `<div class="party"><span style="color:${world.faiths[fid].color}">${esc(world.faiths[fid].name)}</span><span>${Math.round(p / tot * 100)} %</span><div class="bar"><i style="width:${p / tot * 100}%;background:${world.faiths[fid].color}"></i></div></div>`).join('')}
+    ${mine && top && top[0] !== n.faith ? `<div class="actions"><button class="btn" data-faith="${top[0]}">Adopter ${esc(world.faiths[top[0]].name)}</button></div>` : ''}
+    <h3>Alliances</h3><div class="small">${allies.length ? allies.join(', ') : 'aucune'}</div>`;
 }
 
 function cityHtml(c) {
@@ -118,7 +156,7 @@ function cityHtml(c) {
     if (!mine) return '';
     const why = world.canBuild(c, k);
     if (why && why.startsWith('requiert')) return '';
-    if (why === 'ville non côtière') return '';
+    if (why === 'ville non côtière' || (b.req && !b.req(c))) return '';
     return `<li><button class="btn" data-build="${k}" ${why ? 'disabled' : ''} title="${esc(b.desc)}">${nm} — ${b.cost(c)} ${cur}</button></li>`;
   }).join('');
   const goods = GOODS.map((g, k) => `<tr><td>${g.name}</td><td>${c.stock[k].toFixed(1)}</td><td class="${c.price[k] > g.base * 1.2 ? 'down' : c.price[k] < g.base * 0.8 ? 'up' : ''}">${c.price[k].toFixed(2)}</td></tr>`).join('');
@@ -133,7 +171,8 @@ function cityHtml(c) {
       <span>Routes</span><span>${roads || 'aucune'}</span>
       ${c.shortage > 0.05 ? `<span>Famine</span><span class="down">${Math.round(c.shortage * 100)} %</span>` : ''}
     </div>
-    <h3>Édifices</h3><ul style="list-style:none;padding:0;margin:0">${bl || '<li><i>aucun</i></li>'}</ul>
+    <h3>Édifices et infrastructures</h3><ul style="list-style:none;padding:0;margin:0">${bl || '<li><i>aucun</i></li>'}</ul>
+    <h3>Réseau routier</h3>${world.roads.filter(r => r.a === c.id || r.b === c.id).map(r => { const o = world.cities[r.a === c.id ? r.b : r.a]; const lv = r.level || 0, nx = ROAD_LEVELS[lv + 1]; const can = mine && nx && n.era >= nx.era; return `<div class="roadRow"><span>→ ${esc(o.name)} : <i>${ROAD_LEVELS[lv].name}</i></span>${can ? `<button class="btn" data-road="${world.roads.indexOf(r)}">${nx.name} (${world.roadCost(r, n)})</button>` : ''}</div>`; }).join('') || '<div class="small">aucune route</div>'}
     <h3>Marché</h3><table class="goods"><tr><th>Denrée</th><th>Stock</th><th>Prix</th></tr>${goods}</table>
     <div class="actions">
       <button class="btn" data-act="zoomcity">🔍 Visiter la ville</button>
@@ -148,11 +187,13 @@ function diploHtml(n) {
   const war = world.atWar(me.id, n.id);
   const pact = me.pacts?.has(n.id);
   return `<h3>Diplomatie avec ${esc(n.name)}</h3>
-    <div class="kv"><span>Dirigeant</span><span>${esc(world.leaderTitle(n))} ${esc(world.leaderFull(n))}</span><span>Régime</span><span>${n.regime}</span><span>Relations</span><span class="${rel < 0 ? 'down' : 'up'}">${rel > 0 ? '+' : ''}${rel}</span><span>Armée</span><span>${fmt(n.army * 10)}</span></div>
+    <div class="kv"><span>Dirigeant</span><span>${esc(world.leaderTitle(n))} ${esc(world.leaderFull(n))}</span><span>Régime</span><span>${n.regime}</span>${world.faiths ? `<span>Religion</span><span style="color:${world.faiths[n.faith].color}">${esc(world.faiths[n.faith].name)}</span>` : ''}${n.budget ? `<span>Économie</span><span><span class="phase" style="background:${PHASES[n.phase].color}">${PHASES[n.phase].name}</span></span>` : ''}<span>Relations</span><span class="${rel < 0 ? 'down' : 'up'}">${rel > 0 ? '+' : ''}${rel}</span><span>Armée</span><span>${fmt(n.army * 10)}</span></div>
     <div class="actions">
       ${war ? `<button class="btn" data-dip="peace" data-n="${n.id}">Proposer la paix</button>` : `<button class="btn danger" data-dip="war" data-n="${n.id}">Déclarer la guerre</button>`}
       ${!war && !pact ? `<button class="btn" data-dip="pact" data-n="${n.id}">Traité de commerce</button>` : ''}
       ${pact ? '<span class="small">✔ Traité de commerce</span>' : ''}
+      ${!war && me.allies && !me.allies.has(n.id) ? `<button class="btn" data-dip="ally" data-n="${n.id}">Proposer une alliance</button>` : ''}
+      ${me.allies?.has(n.id) ? `<span class="small">✔ Allié</span>${world.warsOf(n.id).some(w2 => !world.atWar(me.id, w2.a === n.id ? w2.b : w2.a)) ? world.warsOf(n.id).map(w2 => { const en = w2.a === n.id ? w2.b : w2.a; return world.atWar(me.id, en) ? '' : `<button class="btn danger" data-dip="war" data-n="${en}">Secourir contre ${esc(world.nations[en].name)}</button>`; }).join('') : ''}` : ''}
     </div>`;
 }
 
@@ -198,7 +239,7 @@ let last = performance.now(), acc = 0, t0 = performance.now();
 function frame(now) {
   const dt = Math.min(0.25, (now - last) / 1000); last = now;
   if (world) {
-    if (ui.speed > 0 && ui.mode === 'play' && $('gazette').hidden && $('choice').hidden) {
+    if (ui.speed > 0 && ui.mode === 'play' && $('gazette').hidden && $('choice').hidden && $('battle').hidden && !world.pendingBattle) {
       acc += dt * DAYS_PER_SEC[ui.speed];
       let steps = 0;
       while (acc >= 1 && steps < 1000) { world.stepDay(); acc -= 1; steps++; }
@@ -206,6 +247,8 @@ function frame(now) {
       if (world.year !== ui.lastYear) newYear();
       if (world.pendingChoice && $('choice').hidden) showChoice();
     }
+    if (world.pendingBattle && $('battle').hidden) showBattle();
+    if (!$('battle').hidden) animBattle(now);
     renderer.draw(ui);
     // portrait animé
     const me = world.nations[world.player];
@@ -220,9 +263,60 @@ function frame(now) {
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
       drawPortrait(ctx, ch.adv.L, personFeats(ch.adv.L, n), { nationColor: n.color, era: n.era, regime: 'Conseil', mood: 0 }, (now - t0) / 1000 + 3, cv.width, cv.height);
     }
-    if (now - ui.lastUi > 300) { ui.lastUi = now; refreshUi(); }
+    if (now - ui.lastUi > 300) { ui.lastUi = now; refreshUi(); drawSpark(); }
   }
   requestAnimationFrame(frame);
+}
+
+// ---------- batailles ----------
+function showBattle() {
+  const pb = world.pendingBattle, w = pb.w;
+  const me = world.nations[world.player], foe = world.nations[pb.side === 'a' ? w.b : w.a];
+  const place = world.nearestCity(pb.x, pb.y);
+  setSpeed(0);
+  $('bfTitle').textContent = `Bataille de ${place ? place.name : 'la frontière'}`;
+  const est = estimate(world, me, foe, pb.terrain);
+  const tm = TERRAINS[pb.terrain];
+  const modTxt = Object.entries(tm.mod).map(([k, v]) => `${STRATS[k].name} ${v > 0 ? '+' : ''}${Math.round(v * 100)} %`).join(' · ');
+  $('bfContext').innerHTML = `<b>Terrain :</b> ${tm.name}<br><small>${modTxt}</small><br><b>Forces :</b> ${fmt(me.army * 10)} (${ERAS[me.era].name}) contre ${fmt(foe.army * 10)} (${ERAS[foe.era].name})`;
+  const mA = marshalOf(me), mB = marshalOf(foe);
+  $('cmdAName').textContent = mA ? `${mA.name} (${mA.traits.map(t => TRAITS[t]).join(', ')})` : '';
+  $('cmdBName').textContent = mB ? `${mB.name} (${mB.traits.map(t => TRAITS[t]).join(', ')})` : '';
+  $('bfOpts').innerHTML = availableStrats(me).map(k => `<button class="btn" data-strat="${k}"><span class="odds" style="color:${est[k].win > 0.6 ? '#2f6a2a' : est[k].win < 0.4 ? '#8e2a1c' : '#5a4630'}">${Math.round(est[k].win * 100)} %</span>${STRATS[k].name}<small>${STRATS[k].desc} Pertes estimées ≈ ${fmt(est[k].loss * 10)}.</small></button>`).join('');
+  $('bfResult').textContent = 'Le maréchal attend vos ordres. Les chances estimées tiennent compte du terrain, de la doctrine ennemie et des talents des commandants.';
+  ui.battleScene = { terrain: pb.terrain, colA: `rgb(${me.color})`, colB: `rgb(${foe.color})`, nameA: me.name, nameB: foe.name, armyA: me.army, armyB: foe.army, sA: null, sB: null, res: null, seed: world.day + 7, t0: performance.now(), me, foe, mA, mB };
+  $('battle').hidden = false;
+}
+function fightWith(strat) {
+  const sc = ui.battleScene; if (!sc || sc.res) return;
+  const r = world.resolvePlayerBattle(strat);
+  sc.sA = r.sA; sc.sB = r.sB; sc.res = r; sc.t0 = performance.now();
+  const fmtL = v => fmt(v * 10);
+  $('bfOpts').innerHTML = `<button class="btn" data-act="bfclose">Continuer</button>`;
+  setTimeout(() => { $('bfResult').innerHTML = `<b>${r.retreat ? (r.winA ? 'L\'ennemi se retire.' : 'Vous avez rompu le combat.') : r.winA ? (r.decisive ? 'Victoire écrasante !' : 'Victoire !') : (r.decisive ? 'Déroute !' : 'Défaite.')}</b> ${STRATS[r.sA].name} contre ${STRATS[r.sB].name.toLowerCase()}. Vos pertes : ${fmtL(r.lossA)} ; pertes ennemies : ${fmtL(r.lossB)}.`; refreshUi(true); }, 4800);
+}
+function animBattle(now) {
+  const sc = ui.battleScene; if (!sc) return;
+  const cv = $('bfCanvas'), ctx = cv.getContext('2d');
+  const t = sc.res ? (now - sc.t0) / 1000 : 0.4 + Math.sin(now / 600) * 0.05;
+  drawBattlefield(ctx, cv.width, cv.height, sc, Math.min(t, 6));
+  for (const [id, L, n] of [['cmdA', sc.mA, sc.me], ['cmdB', sc.mB, sc.foe]]) {
+    if (!L) continue;
+    const c2 = $(id), x2 = c2.getContext('2d'); x2.setTransform(1, 0, 0, 1, 0, 0); x2.clearRect(0, 0, c2.width, c2.height);
+    drawPortrait(x2, L, personFeats(L, n), { nationColor: n.color, era: n.era, regime: 'Conseil', mood: sc.res ? ((id === 'cmdA') === sc.res.winA ? 0.8 : -0.8) : 0 }, now / 1000 + (id === 'cmdB' ? 5 : 0), c2.width, c2.height);
+  }
+}
+
+function drawSpark() {
+  const cv = document.getElementById('gdpSpark'); if (!cv) return;
+  const n = world.nations[+cv.dataset.n], h = n.gdpHist || [];
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  if (h.length < 2) return;
+  const mx = Math.max(...h), mn = Math.min(...h);
+  ctx.strokeStyle = '#5a4630'; ctx.lineWidth = 1.5; ctx.beginPath();
+  h.forEach((v, k) => { const x = k / (h.length - 1) * (cv.width - 2) + 1, y = cv.height - 3 - (v - mn) / Math.max(1e-6, mx - mn) * (cv.height - 8); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.stroke();
+  ctx.fillStyle = '#5a4630'; ctx.font = '10px Georgia'; ctx.fillText('PIB (60 ans)', 3, 10);
 }
 
 function personFeats(L, n) {
@@ -280,6 +374,16 @@ function onClick(sx, sy) {
   if (ui.mode === 'pick') {
     const nid = p.city ? p.city.nation : p.nation;
     if (nid >= 0) choosePlayer(nid);
+    return;
+  }
+  if (ui.mode === 'order') {
+    ui.mode = 'play'; $('map').style.cursor = '';
+    const o = ui.order; ui.order = null;
+    const w = world.wars[o.w];
+    if (!w || !p.city) { toast('Ordre annulé.'); return; }
+    const foe = o.side === 'a' ? w.b : w.a;
+    if (p.city.nation !== foe) { toast('Choisissez une ville de l\'ennemi.'); return; }
+    toast(world.orderUnit(w, o.side, p.city.id) ? `L'armée marche sur ${p.city.name}.` : 'Aucun chemin praticable.');
     return;
   }
   if (ui.mode === 'road') {
@@ -366,6 +470,9 @@ function setupInput() {
   $('closeRight').onclick = () => { $('right').hidden = true; ui.selCity = null; ui.selNation = null; };
 
   document.body.addEventListener('input', e => {
+    if (e.target.id === 'rate') { const n = world.nations[world.player]; n.rate = +e.target.value; }
+    if (e.target.id === 'manualRate') { world.nations[world.player].manualRate = e.target.checked; refreshUi(true); }
+    if (e.target.id === 'mapMode') { renderer.mode = e.target.value; renderer.terrVer = -1; }
     if (e.target.id === 'tax') { const n = world.nations[world.player]; n.tax = +e.target.value / 100; $('taxv').textContent = `${e.target.value} %`; }
   });
   document.body.addEventListener('click', e => {
@@ -381,6 +488,19 @@ function setupInput() {
       const err = world.build(c, b.dataset.build);
       toast(err ? `Impossible : ${err}` : `Chantier lancé à ${c.name}.`);
       refreshUi(true);
+    } else if (b.dataset.budget) {
+      me.budget[b.dataset.budget] = +b.dataset.lvl; refreshUi(true);
+    } else if (b.dataset.road != null) {
+      const err = world.upgradeRoad(world.roads[+b.dataset.road], me);
+      toast(err ? `Impossible : ${err}` : 'Travaux achevés.'); refreshUi(true);
+    } else if (b.dataset.faith != null) {
+      if (confirm('Changer de religion d\'État ? (légitimité −15 %)')) world.adoptFaith(me, +b.dataset.faith); refreshUi(true);
+    } else if (b.dataset.army != null) {
+      ui.mode = 'order'; ui.order = { w: +b.dataset.army, side: b.dataset.side }; $('map').style.cursor = 'crosshair'; toast('Cliquez la ville ennemie à attaquer.');
+    } else if (b.dataset.strat) {
+      fightWith(b.dataset.strat);
+    } else if (b.dataset.act === 'bfclose') {
+      $('battle').hidden = true; refreshUi(true);
     } else if (b.dataset.act === 'colony') {
       const r = world.foundColony(me);
       if (typeof r === 'string') toast(`Impossible : ${r}`);
@@ -398,6 +518,7 @@ function setupInput() {
       const nid = +b.dataset.n;
       if (b.dataset.dip === 'war') { if (confirm(`Déclarer la guerre à ${world.nations[nid].name} ?`)) world.declareWar(world.player, nid); }
       else if (b.dataset.dip === 'peace') toast(world.offerPeace(world.player, nid) ? 'La paix est signée.' : 'Votre offre de paix est rejetée.');
+      else if (b.dataset.dip === 'ally') toast(world.proposeAlliance(world.player, nid) ? 'Alliance conclue !' : 'Ils déclinent votre proposition.');
       else if (b.dataset.dip === 'pact') toast(world.proposePact(world.player, nid) ? 'Traité de commerce signé.' : 'Ils refusent : relations trop mauvaises.');
       refreshUi(true);
     }

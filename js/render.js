@@ -1,7 +1,7 @@
 // Rendu de la carte façon carte ancienne : relief ombré, côtes à l'encre, rivières, symboles, frontières, routes, villes.
 import { B, BIOME_COLOR, isWaterBiome } from './terrain.js';
 import { jit, makeNoise } from './rng.js';
-import { buildCityPlan, drawCityPlan, planKey, cityRadius, rgb } from './city.js';
+import { buildCityPlan, drawCityPlan, drawCityBridges, planKey, cityRadius, rgb } from './city.js';
 
 const RES = 8; // pixels par case pour le fond
 
@@ -221,10 +221,16 @@ export class Renderer {
     const cv = this.terrCv || (this.terrCv = document.createElement('canvas'));
     cv.width = W; cv.height = H;
     const c = cv.getContext('2d'); const img = c.createImageData(W, H);
+    const mode = this.mode || 'politique';
+    const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    const PH = ['#2f9e44', '#82b84a', '#3d7fd6', '#c9a227', '#d9711c', '#c0262a'].map(hex);
+    const fc = wd.faiths ? wd.faiths.map(f => hex(f.color)) : [];
     for (let i = 0; i < W * H; i++) {
       const n = wd.cellNation[i];
-      if (n < 0) continue;
-      const col = wd.nations[n].color;
+      if (n < 0 || mode === 'relief') continue;
+      let col = wd.nations[n].color;
+      if (mode === 'religion' && wd.faiths) { const c = wd.cities[wd.cellCity[i]]; col = fc[c ? c.faith : wd.nations[n].faith] || col; }
+      else if (mode === 'economie' && wd.nations[n].phase != null) col = PH[wd.nations[n].phase];
       img.data[i * 4] = col[0]; img.data[i * 4 + 1] = col[1]; img.data[i * 4 + 2] = col[2]; img.data[i * 4 + 3] = 255;
     }
     c.putImageData(img, 0, 0);
@@ -256,7 +262,7 @@ export class Renderer {
       }
       this.borders.push([nid, p]);
     }
-    this.terrVer = wd.territoryVersion;
+    this.terrVer = wd.territoryVersion + '|' + (this.mode || '') + '|' + (wd.faithVersion || 0) + '|' + (this.mode === 'economie' ? wd.year : '');
   }
 
   rebuildRoads() {
@@ -281,7 +287,7 @@ export class Renderer {
     const dpr = window.devicePixelRatio || 1;
     const w = this.cv.clientWidth, h = this.cv.clientHeight;
     if (this.cv.width !== Math.round(w * dpr) || this.cv.height !== Math.round(h * dpr)) { this.cv.width = Math.round(w * dpr); this.cv.height = Math.round(h * dpr); }
-    if (this.terrVer !== wd.territoryVersion) this.rebuildTerritory();
+    if (this.terrVer !== wd.territoryVersion + '|' + (this.mode || '') + '|' + (wd.faithVersion || 0) + '|' + (this.mode === 'economie' ? wd.year : '')) this.rebuildTerritory();
     if (this.roadVer !== wd.roadVersion) this.rebuildRoads();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#cdb88e'; ctx.fillRect(0, 0, w, h);
@@ -291,7 +297,7 @@ export class Renderer {
     ctx.drawImage(this.base, 0, 0, wd.W, wd.H);
     // territoires
     const cityZoom = Math.max(0, Math.min(1, (s - 22) / 18));
-    ctx.globalAlpha = 0.22 * (1 - cityZoom * 0.7);
+    ctx.globalAlpha = (this.mode && this.mode !== 'politique' ? 0.45 : 0.22) * (1 - cityZoom * 0.7);
     ctx.drawImage(this.terrCv, 0, 0, wd.W, wd.H);
     ctx.globalAlpha = 1;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -311,6 +317,12 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(40,36,34,0.85)'; ctx.lineWidth = Math.max(0.09, 2.2 / s); ctx.stroke(p);
         ctx.strokeStyle = 'rgba(240,232,210,0.9)'; ctx.lineWidth = Math.max(0.05, 1.1 / s);
         ctx.setLineDash([Math.max(0.15, 4 / s), Math.max(0.15, 4 / s)]); ctx.stroke(p); ctx.setLineDash([]);
+      } else if ((road.level || 0) >= 3) {
+        ctx.strokeStyle = 'rgba(60,60,64,0.9)'; ctx.lineWidth = Math.max(0.12, 3 / s); ctx.stroke(p);
+        ctx.strokeStyle = 'rgba(240,200,90,0.9)'; ctx.lineWidth = Math.max(0.03, 0.8 / s); ctx.stroke(p);
+      } else if ((road.level || 0) === 1) {
+        ctx.strokeStyle = 'rgba(96,66,40,0.9)'; ctx.lineWidth = Math.max(0.08, 2 / s); ctx.stroke(p);
+        ctx.strokeStyle = 'rgba(214,196,160,0.9)'; ctx.lineWidth = Math.max(0.04, 0.9 / s); ctx.stroke(p);
       } else {
         ctx.strokeStyle = era >= 2 ? 'rgba(112,78,48,0.85)' : 'rgba(120,86,52,0.75)';
         ctx.lineWidth = Math.max(0.06, (era >= 2 ? 1.6 : 1.2) / s);
@@ -335,6 +347,7 @@ export class Renderer {
       ctx.strokeStyle = `rgba(78,118,142,${Math.min(1, (s - 14) / 10)})`; ctx.lineCap = 'round';
       for (const [w, p] of this.rivers) { ctx.lineWidth = w; ctx.stroke(p); }
     }
+    if (cityZoom > 0) for (const c of visible) { const plan = this.plans.get(c.id); if (plan) drawCityBridges(ctx, plan, cityZoom); }
     // icônes
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawArmies(ctx, s);

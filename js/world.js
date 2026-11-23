@@ -2,6 +2,8 @@
 import { RNG, hash2 } from './rng.js';
 import { generateTerrain, B, MOVE, NEI8, Heap } from './terrain.js';
 import * as NM from './names.js';
+import { installSystems, PHASES } from './systems.js';
+import { terrainAt, aiStrategy, computeBattle, STRATS } from './battle.js';
 
 export const ERAS = [
   { name: 'Antiquité', tech: 0, food: 1, currency: 'oboles' },
@@ -34,7 +36,18 @@ export const BUILDINGS = {
   universite: { name: 'Université', era: 2, cost: () => 240, desc: '+recherche.' },
   manufacture: { name: 'Manufacture', era: 3, cost: () => 300, desc: '+production d\'étoffes et de fer.' },
   usine: { name: 'Usine', era: 4, cost: () => 480, desc: 'Production ×2, attire les ouvriers (exode rural).' },
+  grenier: { name: 'Greniers publics', era: 0, cost: () => 70, desc: 'Réserves de blé doublées, famines deux fois moins meurtrières.' },
+  mine: { name: 'Mines', era: 0, cost: () => 110, req: c => c.prodFull[2] + c.prodFull[3] > 0.06, reqText: 'aucun gisement proche', desc: 'Pierre et fer ×2,5.' },
+  fort: { name: 'Forteresse', era: 0, cost: () => 130, desc: 'Sièges 40 % plus durs, rayonnement territorial accru.' },
+  irrigation: { name: 'Irrigation', era: 1, cost: () => 120, req: c => c.river, reqText: 'pas de fleuve à proximité', desc: 'Récoltes +35 %.' },
+  aqueduc: { name: 'Aqueduc', era: 1, cost: c => Math.round(140 + c.pop / 300), desc: 'Capacité +15 %, épidémies atténuées.' },
+  phare: { name: 'Phare', era: 1, cost: () => 100, coastal: true, req: c => c.buildings.port, reqText: 'requiert un port', desc: 'Routes maritimes plus longues et plus sûres.' },
+  gare: { name: 'Gare', era: 4, cost: () => 260, desc: 'Relie toutes les routes de la ville au rail.' },
 };
+export const ROAD_LEVELS = [
+  { name: 'Piste', era: 0, eff: 1 }, { name: 'Route pavée', era: 1, eff: 1.3, k: 1.5 },
+  { name: 'Voie ferrée', era: 4, eff: 1.7, k: 5 }, { name: 'Autoroute', era: 5, eff: 2.1, k: 9 },
+];
 export const TEMPLE_NAMES = ['Temple', 'Temple', 'Cathédrale', 'Basilique', 'Église', 'Centre spirituel'];
 
 export const REGIMES = {
@@ -95,6 +108,7 @@ export class World {
     this.buildInitialRoads();
     this.updateTerritory();
     for (const c of this.cities) this.computeProduction(c);
+    this.initSystems();
   }
 
   // ---------- utilitaires ----------
@@ -197,6 +211,7 @@ export class World {
     n.leader = this.makeLeader(n);
     n.court = COURT_ROLES.map(role => ({ role, L: this.makePerson(n) }));
     capital.nation = id;
+    if (this.faiths) { this.initNationSystems(n); n.faith = capital.faith ?? 0; }
     return n;
   }
 
@@ -207,7 +222,7 @@ export class World {
       id: this.cities.length, x, y, i, nation: nationId, pop, alive: true,
       name: NM.cityName(culture, r), culture, founded: this.year, seed: r.int(1, 1e9),
       coastal: !!this.T.coastal[i], river: !!this.T.nearRiver[i],
-      buildings: {}, wallR: 0, stock: GOODS.map(() => 2), price: GOODS.map(g => g.base),
+      buildings: {}, wallR: 0, faith: this.nations[nationId]?.faith ?? 0, stock: GOODS.map(() => 2), price: GOODS.map(g => g.base),
       prodFull: GOODS.map(() => 0), imp: GOODS.map(() => 0), tradeIncome: 0, tradeEMA: 0, K: pop * 1.5, shortage: 0, cells: 0,
     };
     this.cities.push(c);
@@ -315,6 +330,18 @@ export class World {
     while (c !== -1) { path.push(c); c = came[c]; }
     return { path: path.reverse(), cost: g[b] };
   }
+  roadCost(rd, n) { const nx = (rd.level || 0) + 1; return nx >= ROAD_LEVELS.length ? Infinity : Math.round(rd.len * ROAD_LEVELS[nx].k * (1 + n.era * 0.15)); }
+  upgradeRoad(rd, n, silent) {
+    const nx = (rd.level || 0) + 1;
+    if (nx >= ROAD_LEVELS.length) return 'niveau maximal';
+    if (n.era < ROAD_LEVELS[nx].era) return `requiert ${ERAS[ROAD_LEVELS[nx].era].name}`;
+    const cost = this.roadCost(rd, n);
+    if (n.treasury < cost) return `trésor insuffisant (${cost})`;
+    n.treasury -= cost; rd.level = nx; rd.rail = nx >= 2; this.roadVersion++;
+    const a = this.cities[rd.a], b = this.cities[rd.b];
+    if (!silent || nx >= 2) this.log('infra', { w: nx >= 2 ? 4 : 2, nations: [n.id], text: nx === 2 ? `La ligne de chemin de fer ${a.name}–${b.name} est inaugurée.` : nx === 3 ? `L'autoroute ${a.name}–${b.name} est ouverte.` : `La route ${a.name}–${b.name} est pavée.` });
+    return null;
+  }
   connected(a, b) { return this.adj.get(a.id)?.has(b.id); }
   buildRoad(ca, cb, silent = true) {
     if (ca === cb || this.connected(ca, cb)) return null;
@@ -340,7 +367,7 @@ export class World {
 
   // ---------- territoire ----------
   cityStrength(c) { return 1 + Math.log10(Math.max(100, c.pop)) * 0.4; }
-  cityReach(c) { const n = this.nations[c.nation]; return 6 + Math.log10(Math.max(100, c.pop)) * 3 + (n ? n.era : 0) * 1.4; }
+  cityReach(c) { const n = this.nations[c.nation]; return 6 + Math.log10(Math.max(100, c.pop)) * 3 + (n ? n.era : 0) * 1.4 + (c.buildings.fort ? 3 : 0); }
   // Territoire : chaque ville rayonne selon sa taille ; les terres déjà tenues coûtent moins cher à garder
   // et plus cher à prendre (frontières stables qui ne bougent que sous pression), les fleuves et
   // montagnes font frontière, puis lissage et suppression des enclaves sans ville.
@@ -478,16 +505,17 @@ export class World {
     // production & consommation
     for (const c of alive) {
       const n = this.nations[c.nation], era = n.era, E = ERAS[era];
-      const labour = Math.min(6, Math.sqrt(c.pop / 3000 + 0.1)) * (1 + 0.45 * era);
-      const bmul = [1, 1, 1, (c.buildings.manufacture ? 1.6 : 1) * (c.buildings.usine ? 2.2 : 1), (c.buildings.manufacture ? 1.8 : 1) * (c.buildings.usine ? 2.2 : 1), 1];
+      const labour = Math.min(6, Math.sqrt(c.pop / 3000 + 0.1)) * (1 + 0.45 * era) * PHASES[n.phase].act;
+      const mi = c.buildings.mine ? 2.5 : 1;
+      const bmul = [1, 1, mi, mi * (c.buildings.manufacture ? 1.6 : 1) * (c.buildings.usine ? 2.2 : 1), (c.buildings.manufacture ? 1.8 : 1) * (c.buildings.usine ? 2.2 : 1), 1];
       c.tradeIncome = 0;
       for (let g = 0; g < 6; g++) {
-        const prod = g === 0 ? c.prodFull[0] * E.food + (c.extraFood || 0) : c.prodFull[g] * labour * bmul[g];
+        const prod = g === 0 ? c.prodFull[0] * E.food * (c.buildings.irrigation ? 1.35 : 1) + (c.extraFood || 0) : c.prodFull[g] * labour * bmul[g];
         const cons = c.pop / 1000 * GOODS[g].cons * (g === 0 ? 1 : 1 + 0.35 * era);
         c.stock[g] += prod - cons;
         if (c.stock[g] < 0) { if (g === 0) c.shortage = Math.min(1, -c.stock[g] / Math.max(0.01, cons)); c.stock[g] = 0; }
         else if (g === 0) c.shortage *= 0.5;
-        c.stock[g] = Math.min(c.stock[g], cons * 24 + 5);
+        c.stock[g] = Math.min(c.stock[g], (cons * 24 + 5) * (g === 0 && c.buildings.grenier ? 2 : 1));
         c.price[g] = GOODS[g].base * Math.max(0.3, Math.min(4, (cons * 4 + 0.4) / (c.stock[g] + 0.4)));
         c._cons = c._cons || []; c._cons[g] = cons;
       }
@@ -503,12 +531,14 @@ export class World {
       if (c.buildings.usine) K += 22000 * (era - 3);
       if (c.buildings.manufacture) K += 4000;
       if (c.buildings.marche) K *= 1.1;
+      K *= 1 + 0.04 * n.budget.chantiers;
+      if (c.buildings.aqueduc) K *= 1.15;
       c.K = Math.max(150, K);
       // la population urbaine « bonus » est nourrie par l'arrière-pays (marchés nationaux)
       c.extraFood = Math.max(0, Math.min(c.pop, K) - foodK) / 1000;
       const r = era >= 4 ? 0.007 : 0.004;
       c.pop += c.pop * r * (1 - c.pop / c.K) + this.rng.gauss() * c.pop * 0.0015;
-      if (c.shortage > 0.05) { c.pop *= 1 - 0.025 * c.shortage; n.shortage = Math.max(n.shortage, c.shortage); }
+      if (c.shortage > 0.05) { c.pop *= 1 - 0.025 * c.shortage * (1 - 0.2 * n.budget.social) * (c.buildings.grenier ? 0.5 : 1); n.shortage = Math.max(n.shortage, c.shortage); }
       c.pop = Math.max(60, c.pop);
     }
     // finances, armée, stabilité, partis
@@ -519,10 +549,11 @@ export class World {
 
   trade(alive) {
     const pairs = [];
-    for (const r of this.roads) pairs.push([this.cities[r.a], this.cities[r.b], 1]);
+    for (const r of this.roads) pairs.push([this.cities[r.a], this.cities[r.b], ROAD_LEVELS[r.level || 0].eff]);
     const ports = alive.filter(c => c.buildings.port);
     for (let i = 0; i < ports.length; i++) for (let j = i + 1; j < ports.length; j++) {
-      if (this.dist(ports[i], ports[j]) < 55) pairs.push([ports[i], ports[j], 0.6]);
+      const ph = ports[i].buildings.phare || ports[j].buildings.phare;
+      if (this.dist(ports[i], ports[j]) < (ph ? 90 : 55)) pairs.push([ports[i], ports[j], ph ? 0.85 : 0.6]);
     }
     for (const c of alive) c.imp = c.imp.map(v => v * 0.9);
     for (const [a, b, eff] of pairs) {
@@ -556,30 +587,26 @@ export class World {
     let income = base * n.tax * 3.2 * (T.includes('marchand') ? 1.1 : 1);
     const atWar = this.warsOf(n.id).length;
     let target = pop * 0.012 * (atWar ? 1.7 : 1) * (T.includes('conquerant') ? 1.3 : 1) * (n.regime === 'Dictature' ? 1.4 : 1);
-    if (n.treasury < 0) target *= 0.6;
+    if (n.debt > n.gdp * 2) target *= 0.7;
+    target = this.econMonthly(n, cs, pop, base, income, target);
     n.army += (target - n.army) * 0.05;
-    const nb = cs.reduce((s, c) => s + Object.keys(c.buildings).length, 0);
-    const upkeep = n.army * 0.004 * (1 + n.era * 0.3) + cs.length * 0.12 * (1 + n.era * 0.5) + nb * 0.08 * (1 + n.era * 0.3) + (T.includes('prodigue') ? income * 0.2 : 0)
-      + Math.max(0, n.treasury - Math.max(300, income * 60)) * 0.02; // corruption / gaspillage des trésors dormants
-    n.income = income; n.expense = upkeep;
-    n.treasury += income - upkeep;
     // stabilité
     const temples = cs.filter(c => c.buildings.temple).length;
-    let t = 0.66 - (n.tax - 0.15) * 1.8 - atWar * 0.07 - n.shortage * 0.4 + temples / cs.length * 0.12
+    let t = 0.72 - (n.tax - 0.15) * 1.8 - atWar * 0.07 - n.shortage * 0.4 + temples / cs.length * 0.12
       + (n.legitimacy - 0.6) * 0.25 - Math.max(0, cs.length - 9) * 0.012;
     if (T.includes('pieux')) t += 0.05; if (T.includes('sage')) t += 0.04; if (T.includes('cruel')) t -= 0.07; if (T.includes('prudent')) t += 0.02;
     if (n.era >= 4 && REGIMES[n.regime].hered) t -= 0.1;
     if (n.regime === 'Dictature') t -= 0.04;
-    if (n.treasury < 0) t -= 0.15;
+    t += this.systemsStability(n, cs);
     n.stability += (Math.max(0, Math.min(1, t)) - n.stability) * 0.06 + this.rng.gauss() * 0.008;
     n.stability = Math.max(0, Math.min(1, n.stability));
     // partis (modèle EcoPol simplifié)
     const w = {
       tradition: 1 + (REGIMES[n.regime].hered ? 0.4 : 0) + n.stability * 0.5,
-      militaire: 0.8 + atWar * 0.8 + (n.conquests ? 0.3 : 0),
-      religion: 0.8 + temples / cs.length + n.shortage,
+      militaire: 0.8 + atWar * 0.8 + (n.conquests ? 0.3 : 0) + n.budget.armee * 0.08,
+      religion: 0.8 + temples / cs.length + n.shortage + (n.minority || 0) + n.budget.cour * 0.08,
       commerce: 0.7 + Math.min(1.5, n.monthTrade * 0.3 + cs.reduce((s, c) => s + c.tradeIncome, 0) / Math.max(1, pop / 1000) * 2) + (0.2 - n.tax),
-      peuple: 0.7 + Math.max(0, n.tax - 0.15) * 4 + n.shortage * 2 + n.era * 0.15,
+      peuple: 0.7 + Math.max(0, n.tax - 0.15) * 4 + n.shortage * 2 + n.era * 0.15 + (3 - n.budget.social) * 0.12 + (n.phase >= 4 ? 0.4 : 0),
     };
     const tot = n.parties.reduce((s, p) => s + w[p.role], 0);
     for (const p of n.parties) p.support += (w[p.role] / tot - p.support) * 0.03;
@@ -588,12 +615,14 @@ export class World {
   warsOf(id) { return this.wars.filter(w => w.a === id || w.b === id); }
   atWar(a, b) { return this.wars.some(w => (w.a === a && w.b === b) || (w.a === b && w.b === a)); }
 
-  declareWar(a, b) {
+  declareWar(a, b, joined = false) {
     if (a === b || this.atWar(a, b)) return false;
     const A = this.nations[a], Bn = this.nations[b];
     const w = { a, b, start: this.year, months: 0, score: 0, units: { a: { nation: a, path: null, pos: 0, target: -1, state: 'march' }, b: { nation: b, path: null, pos: 0, target: -1, state: 'march' } } };
     this.wars.push(w);
     this.planUnit(w, 'a'); this.planUnit(w, 'b');
+    if (A.allies?.has(b)) { A.allies.delete(b); Bn.allies.delete(a); }
+    if (!joined && this.faiths) this.callAllies(a, b);
     A.rel[b] = Math.min(A.rel[b] ?? 0, -60); Bn.rel[a] = Math.min(Bn.rel[a] ?? 0, -60);
     A.pacts?.delete(b); Bn.pacts?.delete(a);
     this.log('guerre', { w: 9, nations: [a, b], title: `${A.name} déclare la guerre à ${Bn.name} !`, text: `${this.leaderTitle(A)} ${this.leaderFull(A)} lance ses armées contre ${Bn.name}.`, body: `Les tambours résonnent aux frontières. ${A.name} aligne environ ${Math.round(A.army * 10).toLocaleString('fr')} soldats face aux ${Math.round(Bn.army * 10).toLocaleString('fr')} de ${Bn.name}. Les marchands ferment leurs comptoirs.` });
@@ -633,6 +662,8 @@ export class World {
     let start = null;
     const cur = u._last != null ? u._last : null;
     let best = null, bd = Infinity, from = null;
+    const ord = u.order != null ? this.cities[u.order] : null;
+    if (ord && ord.alive && ord.nation === foe.id) theirs.splice(0, theirs.length, ord); else u.order = null;
     for (const t of theirs) {
       if (cur != null) { const d = Math.hypot(t.x - cur % this.W, t.y - ((cur / this.W) | 0)); if (d < bd) { bd = d; best = t; from = cur; } }
       else for (const o of mine) { const d = this.dist(o, t); if (d < bd) { bd = d; best = t; from = o.i; } }
@@ -641,7 +672,7 @@ export class World {
     start = from;
     const res = this.findPath(start, best.i, 70000);
     if (!res) return;
-    u.path = res.path; u.pos = 0; u.target = best.id; u.state = 'march'; u.siege = 0;
+    u.path = res.path; u.pos = 0; u.target = best.id; u.state = 'march'; u.siege = 0; u.intercept = false;
   }
   moveUnits() {
     for (const w of this.wars) for (const side of ['a', 'b']) {
@@ -650,7 +681,7 @@ export class World {
       if (!u.path || u.state !== 'march') continue;
       const n = this.nations[u.nation];
       u.pos += (3 + n.era * 0.6) / 30;
-      if (u.pos >= u.path.length - 1) { u.pos = u.path.length - 1; u.state = 'siege'; }
+      if (u.pos >= u.path.length - 1) { u.pos = u.path.length - 1; u.state = u.intercept ? 'hold' : 'siege'; }
       u._last = u.path[Math.floor(u.pos)];
     }
   }
@@ -664,25 +695,24 @@ export class World {
       for (const side of ['a', 'b']) {
         const u = w.units[side], foe = side === 'a' ? Bn : A;
         const t = this.cities[u.target];
-        if (u.state !== 'rest' && (!u.path || !t || !t.alive || t.nation !== foe.id)) this.planUnit(w, side);
+        if (u.state === 'hold' || (u.state !== 'rest' && (!u.path || !t || !t.alive || t.nation !== foe.id))) this.planUnit(w, side);
+        // interception : l'envahisseur sur nos terres attire notre armée
+        const fu = w.units[side === 'a' ? 'b' : 'a'], me = side === 'a' ? A : Bn;
+        if (fu.path && u.state !== 'rest' && u.order == null && this.cellNation) {
+          const fc = fu.path[Math.floor(fu.pos)];
+          if (this.cellNation[fc] === me.id) {
+            const start = u.path ? u.path[Math.floor(u.pos)] : this.cities[me.capital].i;
+            const res = this.findPath(start, fc, 30000);
+            if (res && res.path.length > 1) { u.path = res.path; u.pos = 0; u.state = 'march'; u.intercept = true; u._last = start; }
+          }
+        }
       }
       const ua = w.units.a, ub = w.units.b, pa = this.unitXY(ua), pb = this.unitXY(ub);
       if (!pa && !pb && w.months > 6) { this.makePeace(w, 'Aucune armée ne peut atteindre l\'ennemi : la guerre s\'éteint d\'elle-même.'); continue; }
       // attrition de campagne
       A.army = Math.max(1, A.army * 0.995); Bn.army = Math.max(1, Bn.army * 0.995);
-      if (pa && pb && Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < 2.5) {
-        // bataille rangée
-        const sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3);
-        const sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
-        A.army = Math.max(1, A.army - sb * 0.12); Bn.army = Math.max(1, Bn.army - sa * 0.12);
-        const winA = sa > sb, win = winA ? A : Bn, lose = winA ? Bn : A, lu = winA ? ub : ua;
-        w.score += winA ? 2 : -2;
-        lu.pos = Math.max(0, lu.pos - 7); lu.state = 'march';
-        const x = (pa[0] + pb[0]) / 2, y = (pa[1] + pb[1]) / 2;
-        const place = this.nearestCity(x, y);
-        this.battles.push({ x, y, year: this.year, month: this.month, a: w.a, b: w.b, win: win.id, t: this.day });
-        if (this.battles.length > 60) this.battles.shift();
-        this.log('bataille', { w: 5, nations: [w.a, w.b], title: `Bataille de ${place ? place.name : 'la plaine'}`, text: `Bataille près de ${place ? place.name : 'la frontière'} : victoire de ${win.name}.`, body: `Les armées de ${A.name} et de ${Bn.name} se sont affrontées près de ${place ? place.name : 'la frontière'}. ${win.name} reste maître du terrain ; les troupes de ${lose.name} se replient.` });
+      if (pa && pb && Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < 3.2 && !this.pendingBattle) {
+        this.fight(w, pa, pb);
       }
       // sièges
       for (const side of ['a', 'b']) {
@@ -693,7 +723,7 @@ export class World {
         if (!t || !t.alive || t.nation !== foe.id) { this.planUnit(w, side); continue; }
         u.siege = (u.siege || 0) + 1;
         const ratio = Math.max(0.3, Math.min(2.5, me.army / (foe.army * 0.6 + t.pop / 2000 + 1)));
-        const p = 0.045 * (t.buildings.muraille ? 0.4 : 1) * ratio;
+        const p = 0.045 * (t.buildings.muraille ? 0.4 : 1) * (t.buildings.fort ? 0.6 : 1) * ratio;
         if (this.rng.chance(p)) {
           w.score += side === 'a' ? 3 : -3;
           this.transferCity(t, me, 'conquest');
@@ -708,6 +738,48 @@ export class World {
       if (tired && ai) this.makePeace(w);
       else if (tired && w.months > 30 && this.rng.chance(0.3)) this.makePeace(w, 'Épuisés, les deux camps signent une paix blanche.');
     }
+  }
+  // ---------- batailles ----------
+  fight(w, pa, pb) {
+    const A = this.nations[w.a], Bn = this.nations[w.b];
+    const x = (pa[0] + pb[0]) / 2, y = (pa[1] + pb[1]) / 2;
+    const terrain = terrainAt(this, x, y);
+    const side = w.a === this.player ? 'a' : w.b === this.player ? 'b' : null;
+    if (side && !this.nations[this.player].auto && this.onBattle) {
+      this.pendingBattle = { w, x, y, terrain, side };
+      this.onBattle(this.pendingBattle);
+      return;
+    }
+    const res = computeBattle(this, A, Bn, aiStrategy(this, A, Bn, terrain), aiStrategy(this, Bn, A, terrain), terrain);
+    this.applyBattle(w, x, y, terrain, res);
+  }
+  // le joueur choisit sa stratégie : renvoie le résultat vu de son camp
+  resolvePlayerBattle(strat) {
+    const pb = this.pendingBattle; if (!pb) return null;
+    const { w, x, y, terrain, side } = pb;
+    const me = this.nations[side === 'a' ? w.a : w.b], foe = this.nations[side === 'a' ? w.b : w.a];
+    const sFoe = aiStrategy(this, foe, me, terrain);
+    const r = computeBattle(this, me, foe, strat, sFoe, terrain);
+    const resA = side === 'a' ? r : { ...r, sA: r.sB, sB: r.sA, winA: !r.winA, lossA: r.lossB, lossB: r.lossA, armyA: r.armyB, armyB: r.armyA };
+    this.applyBattle(w, x, y, terrain, resA);
+    this.pendingBattle = null;
+    return r;
+  }
+  applyBattle(w, x, y, terrain, res) {
+    const A = this.nations[w.a], Bn = this.nations[w.b];
+    A.army = Math.max(1, A.army - res.lossA); Bn.army = Math.max(1, Bn.army - res.lossB);
+    const win = res.winA ? A : Bn, lose = res.winA ? Bn : A, lu = w.units[res.winA ? 'b' : 'a'];
+    w.score += (res.winA ? 1 : -1) * (res.decisive ? 4 : res.retreat ? 1 : 2);
+    lu.pos = Math.max(0, lu.pos - (res.decisive ? 14 : res.retreat ? 10 : 7)); lu.state = 'march';
+    if (res.decisive) { lose.stability = Math.max(0, lose.stability - 0.03); lose.exhaustion += 0.1; }
+    const place = this.nearestCity(x, y);
+    const pn = place ? place.name : 'la frontière';
+    this.battles = this.battles || [];
+    this.battles.push({ x, y, year: this.year, month: this.month, a: w.a, b: w.b, win: win.id, t: this.day });
+    if (this.battles.length > 60) this.battles.shift();
+    const fmt = v => Math.round(v * 10).toLocaleString('fr');
+    const TN = { plaine: 'dans la plaine', collines: 'sur les collines', montagne: 'dans les défilés', foret: 'dans les forêts', riviere: 'au gué', marais: 'dans les marais', desert: 'dans le désert' }[terrain];
+    this.log('bataille', { w: res.decisive ? 7 : 5, nations: [w.a, w.b], title: `${res.decisive ? 'Victoire écrasante' : 'Bataille'} de ${pn}`, text: `Bataille de ${pn} ${TN} : ${res.retreat ? `${lose.name} se retire` : `victoire de ${win.name}`} (${STRATS[res.sA].name.toLowerCase()} contre ${STRATS[res.sB].name.toLowerCase()}).`, body: `${TN.charAt(0).toUpperCase() + TN.slice(1)} près de ${pn}, ${A.name} (${STRATS[res.sA].name.toLowerCase()}) affronte ${Bn.name} (${STRATS[res.sB].name.toLowerCase()}). Pertes : ${fmt(res.lossA)} pour ${A.name}, ${fmt(res.lossB)} pour ${Bn.name}. ${win.name} reste maître du terrain.` });
   }
   nearestCity(x, y) {
     let best = null, bd = Infinity;
@@ -768,10 +840,12 @@ export class World {
       if (r.chance(p)) this.leaderDies(n);
       else if (REGIMES[n.regime].term && this.year - n.leader.since >= REGIMES[n.regime].term) this.election(n);
       // révoltes / révolutions
-      if (n.stability < 0.22 && r.chance(0.18)) this.revolution(n);
-      else if (n.stability < 0.3 && cs.length >= 3 && r.chance(0.2)) this.secession(n);
+      if (n.stability < 0.18 && r.chance(0.15)) this.revolution(n);
+      else if (n.stability < 0.24 && cs.length >= 4 && r.chance(0.1)) this.secession(n);
       // événements
       this.randomEvents(n, cs);
+      this.econYearly(n, cs);
+      this.allianceAI(n);
       for (const c of cs) {
         if (c.pop > 3000 && n.era >= 0 && !c.wallR && c.buildings.muraille) c.wallR = 1;
       }
@@ -782,19 +856,26 @@ export class World {
       if (a.neighbors.has(b.id)) d -= 2.5;
       if (a._tradeWith?.[b.id]) d += Math.min(4, a._tradeWith[b.id] * 0.2);
       if (a.culture === b.culture) d += 1;
+      d += a.faith === b.faith ? 1 : -1;
+      if (a.allies?.has(b.id)) d += 1.5;
       const v = Math.max(-100, Math.min(100, ((a.rel[b.id] ?? 0) + (b.rel[a.id] ?? 0)) / 2 + d));
       a.rel[b.id] = v; b.rel[a.id] = v;
     }
     for (const n of this.nations) n._tradeWith = {};
+    this.spreadFaiths();
     // IA
     for (const n of this.nations) if (n.alive && (n.id !== this.player || n.auto)) this.ai(n);
-    // chemins de fer
+    // infrastructures routières (IA)
     for (const rd of this.roads) {
       const a = this.cities[rd.a], b = this.cities[rd.b];
-      if (!rd.rail && a.alive && b.alive && this.nations[a.nation].era >= 4 && this.nations[b.nation].era >= 4 && a.pop > 12000 && b.pop > 8000) {
-        rd.rail = true; this.roadVersion++;
-        if (r.chance(0.3)) this.log('rail', { w: 3, nations: [a.nation], text: `La ligne de chemin de fer ${a.name}–${b.name} est inaugurée.` });
-      }
+      if (!a.alive || !b.alive) continue;
+      const n = this.nations[a.nation];
+      if (n.id === this.player && !n.auto) continue;
+      const nx = (rd.level || 0) + 1;
+      if (nx >= ROAD_LEVELS.length || n.era < ROAD_LEVELS[nx].era) continue;
+      const need = [0, 1500, 9000, 40000][nx];
+      const gare = nx === 2 && (a.buildings.gare || b.buildings.gare);
+      if ((a.pop + b.pop > need || gare) && n.treasury > this.roadCost(rd, n) * 2 && r.chance(gare ? 0.6 : 0.15)) this.upgradeRoad(rd, n, true);
     }
     this.updateTerritory();
     this.resolveEnclaves();
@@ -899,6 +980,7 @@ export class World {
     nn.tech = n.tech; nn.era = n.era; nn.parties = partyNames(n.era).map((nm, k) => ({ name: nm, role: ROLES[k], support: 0.2 }));
     nn.founded = this.year; nn.army = n.army * 0.25; n.army *= 0.75;
     nn.treasury = 60;
+    if (this.faiths) nn.faith = rebel.faith ?? n.faith;
     for (const o of this.nations) { nn.rel[o.id] = o.id === n.id ? -50 : 0; o.rel[nn.id] = o.id === n.id ? -50 : 0; }
     for (const c of cs.slice(1)) if (this.dist(c, rebel) < 14 && this.rng.chance(0.6)) { c.nation = nn.id; }
     rebel.nation = nn.id;
@@ -914,7 +996,7 @@ export class World {
     if (!cs.length) return;
     const big = [...cs].sort((a, b) => b.pop - a.pop)[0];
     if (n.era < 4 && r.chance(0.012)) {
-      for (const c of cs) c.pop *= r.range(0.7, 0.85);
+      for (const c of cs) c.pop *= c.buildings.aqueduc ? r.range(0.85, 0.93) : r.range(0.7, 0.85);
       n.stability -= 0.1;
       this.log('peste', { w: 8, nations: [n.id], title: `La peste ravage ${n.name}`, text: `Une épidémie frappe ${n.name}. Les morts se comptent par milliers.`, body: `Partie des quais de ${big.name}, la maladie s'est répandue le long des routes. Les médecins, impuissants, recommandent la prière et le vinaigre.` });
     } else if (r.chance(0.01)) {
@@ -934,6 +1016,7 @@ export class World {
     if (c.buildings[key]) return 'déjà construit';
     if (n.era < b.era) return `requiert ${ERAS[b.era].name}`;
     if (b.coastal && !c.coastal) return 'ville non côtière';
+    if (b.req && !b.req(c)) return b.reqText;
     if (n.treasury < b.cost(c)) return 'trésor insuffisant';
     return null;
   }
@@ -945,6 +1028,7 @@ export class World {
     c.buildings[key] = this.year;
     if (key === 'muraille') c.wallR = 1;
     if (key === 'port') this.computeProduction(c);
+    if (key === 'gare') for (const rd of this.roads) if ((rd.a === c.id || rd.b === c.id) && (rd.level || 0) < 2) { rd.level = 2; rd.rail = true; this.roadVersion++; }
     this.cityVersion++;
     const nm = key === 'temple' ? TEMPLE_NAMES[n.era] : BUILDINGS[key].name;
     if (!silent || n.id === this.player) this.log('construction', { w: key === 'muraille' || key === 'universite' ? 4 : 2, nations: [n.id], city: c.id, text: `${c.name} : construction ${key === 'muraille' ? 'des murailles' : `d'un${['temple', 'port', 'marche'].includes(key) ? '' : 'e'} ${nm.toLowerCase()}`}.` });
@@ -999,6 +1083,8 @@ export class World {
     // impôts
     const rich = n.treasury > Math.max(400, n.income * 120);
     n.tax += ((n.treasury < 50 ? 0.22 : (n.stability < 0.45 || rich) ? 0.08 : 0.16) - n.tax) * 0.3;
+    // budget
+    if (n.budget) { const war = this.warsOf(n.id).length; n.budget.armee = war ? 3 : (T.includes('conquerant') ? 2 : n.treasury < 60 ? 1 : 2); n.budget.social = n.stability < 0.45 ? 2 : 1; n.budget.chantiers = n.treasury > 300 ? 2 : n.treasury < 80 ? 0 : 1; n.budget.cour = n.legitimacy < 0.5 ? 2 : 1; }
     // construction
     const builder = T.includes('batisseur') ? 2 : 1;
     for (let k = 0; k < builder; k++) {
@@ -1029,10 +1115,13 @@ export class World {
       for (const nb of n.neighbors) {
         const o = this.nations[nb];
         if (!o.alive) continue;
-        const aggr = (T.includes('conquerant') ? 0.05 : 0.012) + (n.regime === 'Dictature' || n.regime === 'Empire' ? 0.02 : 0);
-        if ((n.rel[nb] ?? 0) < -35 && n.army > o.army * 1.25 && r.chance(aggr * 2)) { this.declareWar(n.id, nb); break; }
+        const aggr = ((T.includes('conquerant') ? 0.05 : 0.012) + (n.regime === 'Dictature' || n.regime === 'Empire' ? 0.02 : 0)) * (o.faith !== n.faith ? 1.8 : 1) * (n.budget.armee >= 2 ? 1 : 0.4);
+        const allyArmy = [...o.allies].reduce((s2, id) => s2 + (this.nations[id].alive ? this.nations[id].army : 0), 0);
+        if ((n.rel[nb] ?? 0) < -25 && n.army > (o.army + allyArmy * 0.3) * 1.15 && r.chance(aggr * 3.5)) { this.declareWar(n.id, nb); break; }
         if ((n.rel[nb] ?? 0) > 35 && !(n.pacts?.has(nb)) && r.chance(0.1) && nb !== this.player) this.proposePact(n.id, nb);
       }
     }
   }
 }
+
+installSystems(World);

@@ -100,6 +100,15 @@ Rendu (`js/render.js`) : fond peint une fois à 8 px par case (couleurs interpol
 - Cour de 4 conseillers à portrait (chancelier, maréchal, argentier, prêtre ; titres modernisés à l'ère industrielle).
 - 12 dilemmes à choix présentés par le conseiller concerné (famine, émeutes, prophète, guerre, comptoir, mariage, grève, expédition…), consignés dans la gazette.
 
+**Version 0.3 (fait)** :
+- **Économie EcoPol** : cycle à 6 phases (boom, expansion, reprise, stagnation, récession, dépression) avec durée minimale et bulles spéculatives qui éclatent en krach ; PIB et courbe sur 60 ans ; budget de l'État par postes (armée, grands chantiers, aide aux pauvres, cour et clergé) sur 4 niveaux ; dette, emprunts automatiques, intérêts, faillite souveraine ; inflation (monétisation, conjoncture, disettes) et niveau des prix ; banque centrale à la Renaissance avec taux directeur automatique ou fixé par le joueur.
+- **Religions** : 4 à 5 fois fondatrices avec villes saintes, diffusion par les routes, conversion par les temples, schismes, prophètes fondateurs ; minorités religieuses qui pèsent sur la concorde ; changement de religion d'État.
+- **Alliances** défensives : les alliés entrent en guerre (ou trahissent), le joueur est appelé à l'aide.
+- **Batailles tactiques** : terrain (plaine, collines, défilé, forêt, gué, marais, désert), maréchaux avec portraits et talents, 6 stratégies (charge, ligne retranchée, flanc, harcèlement, artillerie à partir de la Renaissance, retraite) au système pierre-feuille-ciseaux pondéré, chances estimées par simulation, mise en scène animée sur canvas ; interception des envahisseurs ; ordres de marche donnés aux armées.
+- **Infrastructures** : greniers, mines, forteresses, irrigation, aqueducs, phares, gares ; routes à 4 niveaux (piste, pavée, voie ferrée, autoroute) qui démultiplient le commerce.
+- **Villes** : vieille ville organique, extensions en damier à îlots fermés après la Renaissance, quartier des affaires à tours, toits à deux pans et ombres portées, palais à cour, temple/cathédrale, marché à étals, cloître universitaire, monuments, jardins arborés, ponts, port avec bateaux, cheminées fumantes, bastions en étoile puis boulevards plantés sur l'ancienne enceinte, champs et vergers irréguliers.
+- **Modes de carte** : politique, religions, cycles économiques, relief.
+
 **Prochaines étapes proposées :**
 
 1. Complots et ambitions des conseillers ; mariages et héritiers visibles.

@@ -16,6 +16,30 @@ const cur = n => ERAS[n.era].currency;
 
 export const CHOICES = [
   {
+    id: 'budget', role: 'argentier',
+    when: (w, n) => n.debt > n.gdp * 1.2,
+    setup: (w, n) => ({ debt: Math.round(n.debt) }),
+    title: () => 'Les créanciers s\'impatientent',
+    text: (c, w, n) => `La dette atteint ${c.debt} ${cur(n)}, plus que la richesse produite en un an. Les banquiers exigent des garanties.`,
+    options: [
+      { label: 'Plan d\'austérité', hint: () => 'budgets réduits, −concorde', apply: (c, w, n) => { for (const k in n.budget) n.budget[k] = Math.max(0, n.budget[k] - 1); stab(n, -0.06); bump(n, 'peuple', 0.04); return 'La cour se serre la ceinture ; le peuple aussi.'; } },
+      { label: 'Lever un impôt exceptionnel', hint: () => '+trésor, −concorde', apply: (c, w, n) => { const g = c.debt * 0.25; n.treasury += g; stab(n, -0.08); return 'Un impôt exceptionnel renfloue les caisses.'; } },
+      { label: 'Faire tourner la planche à billets', hint: () => 'dette −40 %, inflation ++', apply: (c, w, n) => { n.debt *= 0.6; n.inflation += 12; bump(n, 'commerce', -0.04); return 'La monnaie est dévaluée : la dette fond, les prix flambent.'; } },
+    ],
+  },
+  {
+    id: 'minorite', role: 'pretre',
+    when: (w, n) => (n.minority || 0) > 0.2 && w.faiths,
+    setup: (w, n) => { const c = w.citiesOf(n).filter(x => x.faith !== n.faith).sort((a, b) => b.pop - a.pop)[0]; return { city: c, faith: c && w.faiths[c.faith] }; },
+    title: c => `Les fidèles de ${c.faith.name} à ${c.city.name}`,
+    text: (c, w, n) => `${c.city.name} prie selon ${c.faith.name} et non selon la religion officielle (${w.faiths[n.faith].name}). Le clergé réclame des mesures.`,
+    options: [
+      { label: 'Édit de tolérance', hint: () => '+concorde, −religion', apply: (c, w, n) => { stab(n, 0.05); bump(n, 'religion', -0.04); bump(n, 'commerce', 0.02); return 'Un édit garantit la liberté de culte.'; } },
+      { label: 'Missions de conversion', hint: (c, w, n) => `−50 ${cur(n)}, conversion probable`, apply: (c, w, n) => { n.treasury -= 50; if (w.rng.chance(0.6)) { c.city.faith = n.faith; w.faithVersion++; return `${c.city.name} se convertit.`; } return 'Les missionnaires sont chassés.'; } },
+      { label: 'Persécutions', hint: () => 'conversion forcée, −population, −concorde', apply: (c, w, n) => { c.city.faith = n.faith; c.city.pop *= 0.85; w.faithVersion++; stab(n, -0.07); bump(n, 'religion', 0.04); return `Les fidèles de ${c.faith.name} fuient ${c.city.name}.`; } },
+    ],
+  },
+  {
     id: 'famine', role: 'argentier',
     when: (w, n) => n.shortage > 0.15 || w.citiesOf(n).some(c => c.shortage > 0.2),
     setup: (w, n) => ({ city: w.citiesOf(n).sort((a, b) => b.shortage - a.shortage)[0] }),
@@ -57,7 +81,7 @@ export const CHOICES = [
     title: c => `Un prophète à ${c.city.name}`,
     text: c => `Un ermite descendu des collines prêche à ${c.city.name}. Il annonce la fin des temps et les foules le suivent.`,
     options: [
-      { label: 'L\'accueillir à la cour', hint: () => '+religion, +concorde, −tradition', apply: (c, w, n) => { bump(n, 'religion', 0.05); bump(n, 'tradition', -0.02); stab(n, 0.04); return 'Le prophète siège désormais au conseil.'; } },
+      { label: 'L\'accueillir à la cour', hint: () => '+religion, +concorde, peut fonder une religion', apply: (c, w, n) => { bump(n, 'religion', 0.05); bump(n, 'tradition', -0.02); stab(n, 0.04); if (w.faiths && w.rng.chance(0.35)) { const f = w.newFaith(c.city); c.city.faith = f.id; w.log('foi', { w: 7, nations: [n.id], city: c.city.id, title: `Naissance de ${f.name}`, text: `Le prophète de ${c.city.name} fonde ${f.name}.` }); return `Ses disciples fondent ${f.name} !`; } return 'Le prophète siège désormais au conseil.'; } },
       { label: 'Le bannir', hint: () => '−religion, +tradition', apply: (c, w, n) => { bump(n, 'religion', -0.04); bump(n, 'tradition', 0.03); stab(n, -0.02); return 'Le prophète est chassé de la ville.'; } },
       { label: 'Le faire taire discrètement', hint: () => 'risqué', apply: (c, w, n) => { if (w.rng.chance(0.5)) { stab(n, -0.08); legit(n, -0.08); return 'Le scandale éclate : on accuse le palais.'; } return 'Le prophète a disparu. Personne ne pose de questions.'; } },
     ],
