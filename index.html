@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chroniques des Âges</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&family=UnifrakturMaguntia&family=Playfair+Display:wght@700;900&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="map"></canvas>
+
+<header id="topbar">
+  <div class="brand">Chroniques des Âges</div>
+  <div class="date"><span id="date">—</span><small id="era"></small></div>
+  <div class="speeds" id="speeds">
+    <button data-s="0" title="Pause (Espace)">❚❚</button>
+    <button data-s="1" title="Vitesse 1">▶</button>
+    <button data-s="2" title="Vitesse 2">▶▶</button>
+    <button data-s="3" title="Vitesse 3">▶▶▶</button>
+    <button data-s="4" title="Vitesse 4 (1 an ≈ 0,5 s)">⏩</button>
+  </div>
+  <div id="stats" class="stats"></div>
+  <button id="btnGazette" class="btn">📰 Gazette</button>
+  <button id="btnNew" class="btn">Nouveau monde</button>
+</header>
+
+<aside id="left" class="panel" hidden>
+  <div class="portraitWrap"><canvas id="portrait" width="200" height="250"></canvas></div>
+  <div id="leader"></div>
+  <div id="nation"></div>
+</aside>
+
+<aside id="right" class="panel" hidden>
+  <button class="close" id="closeRight">✕</button>
+  <div id="rightBody"></div>
+</aside>
+
+<div id="ticker"></div>
+<div id="tooltip" hidden></div>
+<div id="toast" hidden></div>
+
+<div id="intro" class="overlay">
+  <div class="card">
+    <h1>Chroniques des Âges</h1>
+    <p class="sub">Un monde qui grandit. De la première hutte à la métropole.</p>
+    <p id="introMsg">Génération du continent…</p>
+    <div class="row"><label>Graine du monde <input id="seed" type="number"></label><button id="regen" class="btn">Regénérer</button></div>
+    <p class="hint">Molette / pincement : zoom · Glisser : déplacer · Cliquez une nation pour la gouverner.</p>
+  </div>
+</div>
+
+<div id="gazette" class="overlay" hidden>
+  <div class="gzWrap">
+    <div class="gzBar"><select id="gzList"></select><button class="btn" id="gzClose">Fermer</button><label class="small"><input type="checkbox" id="gzAuto" checked> Ouvrir chaque nouvelle édition</label></div>
+    <div id="gzBody"></div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
