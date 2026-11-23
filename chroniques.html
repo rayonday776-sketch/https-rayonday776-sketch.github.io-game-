@@ -1,0 +1,2191 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chroniques des Âges</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&family=UnifrakturMaguntia&family=Playfair+Display:wght@700;900&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #efe2c4; --paper2: #e4d3ae; --ink: #2e2116; --ink2: #5a4630; --red: #8e2a1c; --gold: #b08a40;
+  --panel: rgba(239, 226, 196, 0.95);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #cdb88e; color: var(--ink); font-family: "IM Fell English", Georgia, serif; }
+#map { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: grab; touch-action: none; }
+#map.drag { cursor: grabbing; }
+button { font-family: inherit; }
+.btn { background: linear-gradient(#f4e8cc, #dcc79c); border: 1px solid var(--ink2); color: var(--ink); padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 14px; box-shadow: 0 1px 0 rgba(255,255,255,.5) inset; }
+.btn:hover:not(:disabled) { background: linear-gradient(#fff3d8, #e6d2a8); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.danger { color: var(--red); border-color: var(--red); }
+.small { font-size: 12px; }
+
+#topbar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 6px 12px; background: linear-gradient(rgba(239,226,196,.97), rgba(228,211,174,.95)); border-bottom: 2px solid var(--ink2); z-index: 5; flex-wrap: wrap; }
+.brand { font-family: Cinzel, serif; font-weight: 700; font-size: 18px; letter-spacing: 1px; }
+.date { display: flex; flex-direction: column; line-height: 1.1; min-width: 170px; }
+.date #date { font-size: 16px; }
+.date small { color: var(--ink2); font-style: italic; }
+.speeds button { background: none; border: 1px solid transparent; font-size: 13px; padding: 3px 6px; cursor: pointer; color: var(--ink2); border-radius: 3px; }
+.speeds button.on { border-color: var(--ink2); background: rgba(255,255,255,.4); color: var(--ink); }
+.stats { display: flex; gap: 14px; font-size: 14px; margin-left: auto; }
+.stats b { font-family: Cinzel, serif; }
+#btnGazette.flash { animation: flash 1s infinite alternate; }
+@keyframes flash { to { background: #f7d58a; } }
+
+.panel { position: fixed; top: 64px; width: 280px; max-height: calc(100vh - 120px); overflow-y: auto; background: var(--panel); border: 2px solid var(--ink2); box-shadow: 0 4px 18px rgba(60,40,20,.35); padding: 12px; z-index: 4; border-radius: 2px; }
+#left { left: 12px; }
+#right { right: 12px; }
+.panel h2 { font-family: Cinzel, serif; margin: 4px 0 2px; font-size: 19px; }
+.panel h3 { font-family: Cinzel, serif; font-size: 13px; margin: 12px 0 4px; border-bottom: 1px solid var(--ink2); padding-bottom: 2px; letter-spacing: .5px; }
+.panel .sub { font-style: italic; color: var(--ink2); font-size: 14px; }
+.panel p, .panel li, .panel td { font-size: 14px; }
+.close { position: absolute; right: 6px; top: 4px; background: none; border: none; font-size: 16px; cursor: pointer; color: var(--ink2); }
+.portraitWrap { display: flex; justify-content: center; }
+#portrait { width: 160px; height: 200px; }
+.traits span { display: inline-block; font-size: 12px; border: 1px solid var(--ink2); border-radius: 10px; padding: 0 7px; margin: 2px 2px 0 0; background: rgba(255,255,255,.35); }
+.bar { height: 8px; background: rgba(0,0,0,.12); border-radius: 4px; overflow: hidden; margin: 2px 0 6px; }
+.bar i { display: block; height: 100%; background: var(--ink2); }
+.party { display: grid; grid-template-columns: 1fr 44px; gap: 0 6px; font-size: 13px; align-items: center; }
+.party .bar { grid-column: 1 / -1; height: 6px; margin: 0 0 4px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 14px; }
+.kv span:nth-child(odd) { color: var(--ink2); }
+.actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.actions .btn { font-size: 13px; padding: 3px 7px; }
+table.goods { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.goods td, table.goods th { padding: 1px 4px; text-align: right; border-bottom: 1px dotted rgba(0,0,0,.15); }
+table.goods td:first-child, table.goods th:first-child { text-align: left; }
+.up { color: #2f6a2a; } .down { color: var(--red); }
+input[type=range] { width: 100%; accent-color: var(--ink2); }
+
+#ticker { position: fixed; left: 50%; transform: translateX(-50%); bottom: 10px; max-width: min(720px, 92vw); background: var(--panel); border: 1px solid var(--ink2); padding: 6px 12px; font-size: 14px; z-index: 4; border-radius: 2px; box-shadow: 0 3px 10px rgba(60,40,20,.25); }
+#ticker div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .75; }
+#ticker div:first-child { opacity: 1; }
+#ticker div.mine { color: var(--red); }
+#ticker .y { color: var(--ink2); font-size: 12px; margin-right: 6px; }
+#ticker:empty { display: none; }
+
+#tooltip { position: fixed; pointer-events: none; background: rgba(40,28,18,.9); color: #f3e7cc; padding: 4px 8px; font-size: 13px; border-radius: 3px; z-index: 9; white-space: nowrap; }
+#toast { position: fixed; top: 74px; left: 50%; transform: translateX(-50%); background: #2e2116; color: #f6e8c8; padding: 10px 18px; border: 2px solid var(--gold); font-size: 16px; z-index: 8; max-width: 90vw; text-align: center; }
+
+.overlay { position: fixed; inset: 0; background: rgba(40,26,12,.45); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.overlay[hidden], .panel[hidden], #tooltip[hidden], #toast[hidden] { display: none; }
+#intro { background: transparent; pointer-events: none; align-items: flex-start; padding-top: 80px; }
+#intro .card { pointer-events: auto; }
+.card { background: var(--panel); border: 3px double var(--ink2); padding: 18px 26px; max-width: 460px; text-align: center; box-shadow: 0 8px 30px rgba(40,20,0,.4); }
+.card h1 { font-family: Cinzel, serif; margin: 0; font-size: 30px; letter-spacing: 2px; }
+.card .sub { font-style: italic; margin: 4px 0 10px; }
+.card .row { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.card input { width: 120px; font-family: inherit; font-size: 15px; background: #fff8e8; border: 1px solid var(--ink2); padding: 3px 6px; }
+.hint { font-size: 13px; color: var(--ink2); }
+
+/* ---------- Gazette ---------- */
+.gzWrap { width: min(980px, 96vw); max-height: 94vh; display: flex; flex-direction: column; }
+.gzBar { display: flex; gap: 8px; align-items: center; padding: 6px; background: var(--paper2); border: 1px solid var(--ink2); color: var(--ink); }
+.gzBar select { font-family: inherit; font-size: 14px; }
+#gzBody { overflow-y: auto; }
+.paper { background: #f3ead3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .3 0 0 0 0 .15 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E"); color: #1d150e; padding: 22px 28px 26px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.paper .mast { text-align: center; font-size: 54px; line-height: 1; padding-bottom: 6px; border-bottom: 3px double #1d150e; }
+.paper .dateline { text-align: center; font-size: 13px; letter-spacing: 1px; padding: 4px 0; border-bottom: 1px solid #1d150e; text-transform: uppercase; }
+.paper .headline { text-align: center; font-size: 36px; margin: 14px 0 10px; line-height: 1.05; }
+.paper .lead { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 12px; }
+.paper figure { margin: 0; text-align: center; flex: none; }
+.paper figure canvas { width: 150px; height: 188px; border: 1px solid #1d150e; }
+.paper figcaption { font-size: 12px; font-style: italic; }
+.paper .leadtext { font-size: 18px; line-height: 1.4; margin: 0; }
+.paper .cols { display: grid; grid-template-columns: 1fr 1fr 220px; gap: 0 18px; border-top: 2px solid #1d150e; padding-top: 6px; }
+.paper .cols section { border-right: 1px solid rgba(0,0,0,.35); padding-right: 14px; }
+.paper .cols section:last-child { border-right: none; padding-right: 0; }
+.paper h3 { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #1d150e; margin: 8px 0 6px; }
+.paper h4 { margin: 8px 0 2px; font-size: 16px; }
+.paper article p, .paper section p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.35; text-align: justify; hyphens: auto; }
+.paper table.prices { width: 100%; font-size: 13px; border-collapse: collapse; }
+.paper table.prices td, .paper table.prices th { border-bottom: 1px dotted #1d150e; padding: 1px 3px; text-align: left; }
+.paper .ad { border: 2px solid #1d150e; padding: 6px; margin-top: 10px; text-align: center; font-size: 13px; }
+.paper .obit { border-top: 3px solid #1d150e; margin-top: 8px; }
+.paper .drop { float: left; font-family: UnifrakturMaguntia, serif; font-size: 58px; line-height: .8; padding: 6px 6px 0 0; color: #7a1a10; }
+/* styles par ère */
+.paper.antique { background-color: #ead9ad; font-family: "IM Fell English", serif; border: 10px solid #c9ad74; }
+.paper.antique .mast { font-family: Cinzel, serif; letter-spacing: 6px; font-size: 40px; }
+.paper.antique .headline { font-family: Cinzel, serif; font-weight: 400; font-size: 28px; letter-spacing: 1px; }
+.paper.manuscrit { background-color: #efe2c0; font-family: "IM Fell English", serif; border: 8px double #7a1a10; }
+.paper.manuscrit .mast { font-family: UnifrakturMaguntia, serif; color: #7a1a10; }
+.paper.manuscrit .headline { font-family: UnifrakturMaguntia, serif; font-weight: 400; }
+.paper.gazette { font-family: "IM Fell English", serif; }
+.paper.gazette .mast { font-family: UnifrakturMaguntia, serif; }
+.paper.gazette .headline { font-family: "Playfair Display", serif; font-weight: 900; }
+.paper.journal { background-color: #efe8d6; font-family: Georgia, serif; }
+.paper.journal .mast { font-family: "Playfair Display", serif; font-weight: 900; font-size: 60px; }
+.paper.journal .headline { font-family: "Playfair Display", serif; font-weight: 900; font-size: 40px; text-transform: uppercase; }
+.paper.moderne { background: #f7f5f0; font-family: Georgia, serif; }
+.paper.moderne .mast { font-family: Oswald, sans-serif; text-transform: uppercase; font-size: 50px; letter-spacing: 2px; background: #1d150e; color: #f7f5f0; border: none; padding: 6px; }
+.paper.moderne .headline { font-family: Oswald, sans-serif; font-size: 40px; text-align: left; }
+.paper.moderne h3 { font-family: Oswald, sans-serif; }
+
+@media (max-width: 760px) {
+  .brand { display: none; }
+  .stats { font-size: 12px; gap: 8px; margin-left: 0; }
+  .panel { width: calc(100vw - 32px); left: 16px !important; right: 16px !important; top: auto; bottom: 64px; max-height: 45vh; }
+  #portrait { width: 110px; height: 138px; }
+  .paper { padding: 12px; }
+  .paper .mast { font-size: 30px !important; }
+  .paper .headline { font-size: 24px !important; }
+  .paper .lead { flex-direction: column; align-items: center; }
+  .paper .cols { grid-template-columns: 1fr; }
+  .paper .cols section { border-right: none; padding-right: 0; }
+}
+
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+
+<header id="topbar">
+  <div class="brand">Chroniques des Âges</div>
+  <div class="date"><span id="date">—</span><small id="era"></small></div>
+  <div class="speeds" id="speeds">
+    <button data-s="0" title="Pause (Espace)">❚❚</button>
+    <button data-s="1" title="Vitesse 1">▶</button>
+    <button data-s="2" title="Vitesse 2">▶▶</button>
+    <button data-s="3" title="Vitesse 3">▶▶▶</button>
+    <button data-s="4" title="Vitesse 4 (1 an ≈ 0,5 s)">⏩</button>
+  </div>
+  <div id="stats" class="stats"></div>
+  <button id="btnGazette" class="btn">📰 Gazette</button>
+  <button id="btnNew" class="btn">Nouveau monde</button>
+</header>
+
+<aside id="left" class="panel" hidden>
+  <div class="portraitWrap"><canvas id="portrait" width="200" height="250"></canvas></div>
+  <div id="leader"></div>
+  <div id="nation"></div>
+</aside>
+
+<aside id="right" class="panel" hidden>
+  <button class="close" id="closeRight">✕</button>
+  <div id="rightBody"></div>
+</aside>
+
+<div id="ticker"></div>
+<div id="tooltip" hidden></div>
+<div id="toast" hidden></div>
+
+<div id="intro" class="overlay">
+  <div class="card">
+    <h1>Chroniques des Âges</h1>
+    <p class="sub">Un monde qui grandit. De la première hutte à la métropole.</p>
+    <p id="introMsg">Génération du continent…</p>
+    <div class="row"><label>Graine du monde <input id="seed" type="number"></label><button id="regen" class="btn">Regénérer</button></div>
+    <p class="hint">Molette / pincement : zoom · Glisser : déplacer · Cliquez une nation pour la gouverner.</p>
+  </div>
+</div>
+
+<div id="gazette" class="overlay" hidden>
+  <div class="gzWrap">
+    <div class="gzBar"><select id="gzList"></select><button class="btn" id="gzClose">Fermer</button><label class="small"><input type="checkbox" id="gzAuto" checked> Ouvrir chaque nouvelle édition</label></div>
+    <div id="gzBody"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/rng.js
+  function mulberry32(a) {
+    return function() {
+      a |= 0, a = a + 1831565813 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      return t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t, ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var RNG = class {
+    constructor(seed) {
+      this.r = mulberry32(seed >>> 0);
+    }
+    next() {
+      return this.r();
+    }
+    range(a, b) {
+      return a + (b - a) * this.r();
+    }
+    int(a, b) {
+      return a + Math.floor(this.r() * (b - a + 1));
+    }
+    pick(a) {
+      return a[Math.floor(this.r() * a.length)];
+    }
+    chance(p) {
+      return this.r() < p;
+    }
+    gauss() {
+      let u = 0, v = 0;
+      for (; !u; ) u = this.r();
+      for (; !v; ) v = this.r();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    shuffle(a) {
+      for (let i = a.length - 1; i > 0; i--) {
+        let j = Math.floor(this.r() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+  };
+  function hash2(a, b) {
+    let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263);
+    return h = Math.imul(h ^ h >>> 13, 1274126177), (h ^ h >>> 16) >>> 0;
+  }
+  function jit(i, k) {
+    return hash2(i, k) % 1e4 / 1e4 - 0.5;
+  }
+  function makeNoise(seed) {
+    let rng = new RNG(seed), perm = [...Array(256).keys()];
+    rng.shuffle(perm);
+    let p = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+    let gx = new Float32Array(256), gy = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let a = rng.next() * Math.PI * 2;
+      gx[i] = Math.cos(a), gy[i] = Math.sin(a);
+    }
+    let fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+    function g(ix, iy, dx, dy) {
+      let h = p[ix + p[iy]];
+      return gx[h] * dx + gy[h] * dy;
+    }
+    function noise(x, y) {
+      let xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, X = xi & 255, Y = yi & 255, n00 = g(X, Y, xf, yf), n10 = g(X + 1, Y, xf - 1, yf), n01 = g(X, Y + 1, xf, yf - 1), n11 = g(X + 1, Y + 1, xf - 1, yf - 1), u = fade(xf), v = fade(yf), a = n00 + (n10 - n00) * u, b = n01 + (n11 - n01) * u;
+      return a + (b - a) * v;
+    }
+    function fbm(x, y, oct = 5) {
+      let s = 0, a = 1, f = 1, n = 0;
+      for (let o = 0; o < oct; o++)
+        s += a * noise(x * f, y * f), n += a, a *= 0.5, f *= 2;
+      return s / n * 1.5;
+    }
+    function ridge(x, y, oct = 5) {
+      let s = 0, a = 0.5, f = 1, n = 0;
+      for (let o = 0; o < oct; o++) {
+        let v = Math.max(0, 1 - Math.abs(noise(x * f, y * f) * 1.6));
+        v *= v, s += v * a, n += a, a *= 0.5, f *= 2;
+      }
+      return s / n;
+    }
+    return { noise, fbm, ridge };
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/terrain.js
+  var B = { DEEP: 0, SEA: 1, LAKE: 2, BEACH: 3, DESERT: 4, STEPPE: 5, GRASS: 6, FOREST: 7, JUNGLE: 8, TAIGA: 9, TUNDRA: 10, SNOW: 11, HILLS: 12, MOUNTAIN: 13, SWAMP: 14 }, BIOME_NAMES = ["Oc\xE9an profond", "Mer", "Lac", "Littoral", "D\xE9sert", "Steppe", "Prairie", "For\xEAt", "Jungle", "Ta\xEFga", "Toundra", "Neiges \xE9ternelles", "Collines", "Montagnes", "Marais"], BIOME_COLOR = [
+    [112, 146, 150],
+    [158, 186, 176],
+    [150, 182, 178],
+    [228, 214, 170],
+    [229, 207, 152],
+    [208, 199, 142],
+    [186, 192, 130],
+    [140, 160, 102],
+    [110, 146, 88],
+    [132, 148, 112],
+    [196, 194, 168],
+    [242, 240, 232],
+    [190, 176, 128],
+    [176, 158, 124],
+    [146, 158, 116]
+  ], FERT = [0, 0, 0, 0.3, 0.06, 0.5, 1, 0.55, 0.5, 0.3, 0.1, 0, 0.45, 0.05, 0.3], MOVE = [1 / 0, 1 / 0, 1 / 0, 1, 1.7, 1, 1, 1.8, 2.6, 1.8, 2, 9, 2.2, 6, 3], NEI8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], isWaterBiome = (b) => b <= 2, Heap = class {
+    constructor() {
+      this.k = [], this.v = [];
+    }
+    get size() {
+      return this.k.length;
+    }
+    push(key, val) {
+      let k = this.k, v = this.v, i = k.length;
+      for (k.push(key), v.push(val); i > 0; ) {
+        let p = i - 1 >> 1;
+        if (k[p] <= key) break;
+        k[i] = k[p], v[i] = v[p], i = p;
+      }
+      k[i] = key, v[i] = val;
+    }
+    pop() {
+      let k = this.k, v = this.v, top = v[0], topK = k[0], lk = k.pop(), lv = v.pop(), n = k.length;
+      if (n > 0) {
+        let i = 0;
+        for (; ; ) {
+          let l = 2 * i + 1;
+          if (l >= n) break;
+          let r = l + 1, m = r < n && k[r] < k[l] ? r : l;
+          if (k[m] >= lk) break;
+          k[i] = k[m], v[i] = v[m], i = m;
+        }
+        k[i] = lk, v[i] = lv;
+      }
+      return this.lastKey = topK, top;
+    }
+  }, smoothstep = (a, b, x) => {
+    let t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  function generateTerrain(seed, W = 320, H = 200) {
+    let N = W * H, n1 = makeNoise(seed), n2 = makeNoise(seed ^ 1540483477), n3 = makeNoise(seed + 7777), n4 = makeNoise(seed + 31337), h = new Float32Array(N), relief = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let u = x / H, v = y / H, i = y * W + x, dx = (x / W - 0.5) * 2, dy = (y / H - 0.5) * 2, d = Math.sqrt(dx * dx + dy * dy);
+      d += n2.fbm(u * 2, v * 2, 4) * 0.45;
+      let mask = 1 - smoothstep(0.3, 1, d);
+      h[i] = mask * 0.8 + n1.fbm(u * 3.2, v * 3.2, 6) * 0.55;
+      let ridge = n3.ridge(u * 2.4 + 3, v * 2.4 + 1, 5), rm = smoothstep(0.05, 0.4, n4.fbm(u * 1.5 + 9, v * 1.5 + 4, 3));
+      relief[i] = Math.pow(ridge, 1.6) * rm * 1.1 + (n1.fbm(u * 5 + 20, v * 5 + 20, 4) * 0.5 + 0.5) * 0.22;
+    }
+    let sea = Float32Array.from(h).sort()[Math.floor(N * 0.56)], maxH = 0, minH = 0;
+    for (let i = 0; i < N; i++) {
+      let b = h[i] - sea;
+      h[i] = b > 0 ? 0.01 + Math.min(b, 0.25) * 0.5 + relief[i] * Math.min(1, b * 12) : b, h[i] > maxH && (maxH = h[i]), h[i] < minH && (minH = h[i]);
+    }
+    for (let i = 0; i < N; i++) h[i] = h[i] > 0 ? h[i] / maxH : h[i] / -minH;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+      if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) {
+        let i = y * W + x;
+        h[i] = Math.min(h[i], -0.05);
+      }
+    let filled = Float32Array.from(h), vis = new Uint8Array(N), heap = new Heap();
+    for (let i = 0; i < N; i++) h[i] <= 0 && (vis[i] = 1, heap.push(h[i], i));
+    let EPS = 1e-5;
+    for (; heap.size; ) {
+      let c = heap.pop(), cx = c % W, cy = c / W | 0;
+      for (let [dx, dy] of NEI8) {
+        let nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        let n = ny * W + nx;
+        vis[n] || (vis[n] = 1, filled[n] <= filled[c] + EPS && (filled[n] = filled[c] + EPS), heap.push(filled[n], n));
+      }
+    }
+    let lake = new Uint8Array(N);
+    for (let i = 0; i < N; i++) h[i] > 0 && filled[i] - h[i] > 0.012 && (lake[i] = 1);
+    let ds = new Int32Array(N).fill(-1);
+    for (let i = 0; i < N; i++) {
+      if (h[i] <= 0) continue;
+      let x = i % W, y = i / W | 0, best = -1, bv = filled[i];
+      for (let [dx, dy] of NEI8) {
+        let nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        let n = ny * W + nx;
+        filled[n] < bv && (bv = filled[n], best = n);
+      }
+      ds[i] = best;
+    }
+    let distSea = new Int16Array(N).fill(9999), q = new Int32Array(N), qh = 0, qt = 0;
+    for (let i = 0; i < N; i++) h[i] <= 0 && (distSea[i] = 0, q[qt++] = i);
+    for (; qh < qt; ) {
+      let c = q[qh++], cx = c % W, cy = c / W | 0;
+      for (let [dx, dy] of NEI8) {
+        let nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        let n = ny * W + nx;
+        distSea[n] > distSea[c] + 1 && (distSea[n] = distSea[c] + 1, q[qt++] = n);
+      }
+    }
+    let moist = new Float32Array(N), temp = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let i = y * W + x, u = x / H, v = y / H, hn = Math.max(0, h[i]);
+      moist[i] = 0.55 + n4.fbm(u * 2.4 + 40, v * 2.4 + 40, 4) * 0.55 - Math.min(distSea[i], 45) / 45 * 0.3, temp[i] = 0.08 + 0.85 * (y / H) + n2.fbm(u * 2 + 80, v * 2 + 80, 3) * 0.18 - hn * 0.55;
+    }
+    let land = [];
+    for (let i = 0; i < N; i++) h[i] > 0 && land.push(i);
+    land.sort((a, b) => filled[b] - filled[a]);
+    let acc2 = new Float32Array(N);
+    for (let i of land) acc2[i] += 0.4 + Math.max(0, moist[i]);
+    for (let i of land) ds[i] >= 0 && (acc2[ds[i]] += acc2[i]);
+    let RIV = 38, river = new Uint8Array(N);
+    for (let i of land) acc2[i] > RIV && !lake[i] && (river[i] = 1);
+    for (let i of land)
+      moist[i] = Math.min(1, Math.max(0, moist[i] + Math.min(0.25, Math.sqrt(acc2[i]) * 8e-3)));
+    let lh = land.map((i) => h[i]).sort((a, b) => a - b), mtnT = lh[Math.floor(lh.length * 0.91)], hillT = lh[Math.floor(lh.length * 0.76)], snowT = lh[Math.floor(lh.length * 0.985)], biome = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (h[i] <= 0) {
+        biome[i] = h[i] < -0.25 ? B.DEEP : B.SEA;
+        continue;
+      }
+      if (lake[i]) {
+        biome[i] = B.LAKE;
+        continue;
+      }
+      let hv = h[i], m = moist[i], t = temp[i], b;
+      hv >= snowT || hv >= mtnT && t < 0.15 ? b = B.SNOW : hv >= mtnT ? b = B.MOUNTAIN : hv >= hillT ? b = m > 0.72 && t > 0.3 ? B.FOREST : B.HILLS : t < 0.16 ? b = B.TUNDRA : t < 0.34 ? b = m > 0.42 ? B.TAIGA : B.STEPPE : m < 0.24 ? b = t > 0.55 ? B.DESERT : B.STEPPE : m < 0.36 ? b = B.STEPPE : m < 0.6 ? b = B.GRASS : m < 0.8 ? b = t > 0.78 ? B.JUNGLE : B.FOREST : b = hv < hillT * 0.3 && t > 0.35 ? B.SWAMP : t > 0.72 ? B.JUNGLE : B.FOREST, biome[i] = b;
+    }
+    let coastal = new Uint8Array(N), nearRiver = new Uint8Array(N), nearLake = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (h[i] <= 0 || lake[i]) continue;
+      let x = i % W, y = i / W | 0;
+      for (let [dx, dy] of NEI8) {
+        let nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        let n = ny * W + nx;
+        h[n] <= 0 && (coastal[i] = 1), river[n] && (nearRiver[i] = 1), lake[n] && (nearLake[i] = 1);
+      }
+      river[i] && (nearRiver[i] = 1), coastal[i] && h[i] < hillT * 0.12 && biome[i] !== B.SNOW && biome[i] !== B.SWAMP && (biome[i] = B.BEACH);
+    }
+    let fert = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      let f = FERT[biome[i]];
+      nearRiver[i] && (f += biome[i] === B.DESERT ? 0.8 : 0.4), nearLake[i] && (f += 0.2), fert[i] = Math.min(1.5, f);
+    }
+    let shadeH = new Float32Array(N);
+    for (let i = 0; i < N; i++) shadeH[i] = h[i] > 0 ? h[i] - Math.min(0.12, Math.sqrt(acc2[i]) * 3e-3) : 0;
+    return { W, H, h, filled, lake, ds, acc: acc2, river, moist, temp, biome, coastal, nearRiver, fert, shadeH, distSea, mtnT, hillT, snowT, RIV };
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/names.js
+  var ONSETS = ["b", "c", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "v", "z", "th", "ch", "sh", "gr", "br", "tr", "kr", "dr", "st", "ph", "x", "qu", "j", "w", "y", "sk", "kh", "gw", "vl"], VOWELS = ["a", "e", "i", "o", "u", "ae", "ia", "io", "ou", "ei", "au", "y", "\xE9", "aa", "ui", "eo"], CODAS = ["n", "r", "s", "l", "m", "th", "nd", "rk", "x", "st", "ck", "ng", "sh", "z", "rn"], CITY_SUF = ["ia", "on", "um", "heim", "grad", "ar", "is", "polis", "kar", "dun", "burg", "ora", "an", "esh", "abad", "or", "ac", "enne", "stad", "ova", "ium", "mar", "ford", "ica", "\xE8ne", "tal"], NAT_SUF = ["ia", "ar", "ie", "eth", "and", "ium", "istan", "ore", "anie", "\xE8ne", "ylie", "arie", "onie"], cap = (s) => s.charAt(0).toUpperCase() + s.slice(1), clean = (s) => s.replace(/(.)\1\1+/g, "$1$1").replace(/^(.)\1/, "$1");
+  function makeCulture(rng) {
+    let pickN = (arr, n) => rng.shuffle([...arr]).slice(0, n);
+    return {
+      onset: pickN(ONSETS, rng.int(8, 13)),
+      vow: pickN(VOWELS, rng.int(4, 7)),
+      coda: pickN(CODAS, rng.int(2, 5)),
+      citySuf: pickN(CITY_SUF, 4),
+      natSuf: pickN(NAT_SUF, 2),
+      codaP: rng.range(0.15, 0.45),
+      id: rng.int(0, 1e9)
+    };
+  }
+  function word(c, rng, syl) {
+    let s = "";
+    for (let i = 0; i < syl; i++)
+      (i === 0 || rng.chance(0.85)) && (s += rng.pick(c.onset)), s += rng.pick(c.vow), rng.chance(c.codaP) && (s += rng.pick(c.coda));
+    return clean(s);
+  }
+  function cityName(c, rng) {
+    let w = word(c, rng, rng.int(1, 2));
+    return (w.length < 4 || rng.chance(0.5)) && (w += rng.pick(c.citySuf)), cap(clean(w));
+  }
+  function nationName(c, rng) {
+    return cap(clean(word(c, rng, rng.int(1, 2)) + rng.pick(c.natSuf)));
+  }
+  function personName(c, rng, female) {
+    let w = word(c, rng, rng.int(2, 3));
+    return female ? w = w.replace(/[^aeiouyé]+$/, "") + rng.pick(["a", "e", "ia", "ine", "ys"]) : rng.chance(0.35) && (w += rng.pick(["us", "or", "an", "ric", "mir", "os", "ald"])), cap(clean(w));
+  }
+  function dynastyName(c, rng) {
+    return cap(clean(word(c, rng, 2) + rng.pick(["ides", "ing", "ov", "ar", "ien", "ez", "son", "ii"])));
+  }
+  function driftCulture(c, rng) {
+    let n = JSON.parse(JSON.stringify(c));
+    return n.onset[rng.int(0, n.onset.length - 1)] = rng.pick(ONSETS), n.citySuf[rng.int(0, 3)] = rng.pick(CITY_SUF), n.natSuf[0] = rng.pick(NAT_SUF), n.id = rng.int(0, 1e9), n;
+  }
+  var ROMAN = (n) => {
+    let map = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]], s = "";
+    for (let [v, r] of map) for (; n >= v; )
+      s += r, n -= v;
+    return s;
+  };
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/world.js
+  var ERAS = [
+    { name: "Antiquit\xE9", tech: 0, food: 1, currency: "oboles" },
+    { name: "\xC2ge classique", tech: 260, food: 1.3, currency: "deniers" },
+    { name: "Moyen \xC2ge", tech: 750, food: 1.7, currency: "\xE9cus" },
+    { name: "Renaissance", tech: 1600, food: 2.3, currency: "livres" },
+    { name: "\xC8re industrielle", tech: 2900, food: 4.5, currency: "francs" },
+    { name: "\xC8re moderne", tech: 4800, food: 9, currency: "cr\xE9dits" }
+  ], GOODS = [
+    { name: "Bl\xE9", base: 1, cons: 1 },
+    { name: "Bois", base: 2, cons: 0.25 },
+    { name: "Pierre", base: 3, cons: 0.1 },
+    { name: "Fer", base: 6, cons: 0.06 },
+    { name: "\xC9toffes", base: 5, cons: 0.15 },
+    { name: "\xC9pices", base: 12, cons: 0.03 }
+  ], PROD = {
+    [B.GRASS]: [5e-3, 0, 0, 0.015, 0],
+    [B.STEPPE]: [0, 2e-3, 0, 0.035, 0],
+    [B.FOREST]: [0.08, 0, 0, 2e-3, 0],
+    [B.JUNGLE]: [0.06, 0, 0, 0, 0.012],
+    [B.TAIGA]: [0.07, 0, 2e-3, 5e-3, 0],
+    [B.TUNDRA]: [5e-3, 5e-3, 3e-3, 0.01, 0],
+    [B.HILLS]: [0.01, 0.035, 8e-3, 0.015, 0],
+    [B.MOUNTAIN]: [5e-3, 0.05, 0.025, 0, 0],
+    [B.SNOW]: [0, 0.02, 0.01, 0, 0],
+    [B.DESERT]: [0, 0.01, 2e-3, 0, 8e-3],
+    [B.BEACH]: [0, 0, 0, 0, 4e-3],
+    [B.SWAMP]: [0.02, 0, 0, 0, 2e-3]
+  }, BUILDINGS = {
+    muraille: { name: "Muraille", era: 0, cost: (c) => Math.round(110 + c.pop / 150), desc: "D\xE9fense \xD72. Fige l'enceinte : la ville d\xE9borde ensuite en faubourgs." },
+    marche: { name: "March\xE9", era: 0, cost: () => 90, desc: "+35 % de revenus commerciaux." },
+    temple: { name: "Temple", era: 0, cost: () => 80, desc: "+stabilit\xE9, +influence religieuse." },
+    port: { name: "Port", era: 0, cost: () => 140, coastal: !0, desc: "P\xEAche + commerce maritime." },
+    universite: { name: "Universit\xE9", era: 2, cost: () => 240, desc: "+recherche." },
+    manufacture: { name: "Manufacture", era: 3, cost: () => 300, desc: "+production d'\xE9toffes et de fer." },
+    usine: { name: "Usine", era: 4, cost: () => 480, desc: "Production \xD72, attire les ouvriers (exode rural)." }
+  }, TEMPLE_NAMES = ["Temple", "Temple", "Cath\xE9drale", "Basilique", "\xC9glise", "Centre spirituel"], REGIMES = {
+    Chefferie: { titles: ["Chef", "Cheffe"], hered: !0 },
+    Royaume: { titles: ["Roi", "Reine"], hered: !0 },
+    Empire: { titles: ["Empereur", "Imp\xE9ratrice"], hered: !0 },
+    Th\u00E9ocratie: { titles: ["Grand pr\xEAtre", "Grande pr\xEAtresse"], hered: !1 },
+    R\u00E9publique: { titles: ["Consul", "Consule"], hered: !1, term: 5 },
+    D\u00E9mocratie: { titles: ["Pr\xE9sident", "Pr\xE9sidente"], hered: !1, term: 4 },
+    Dictature: { titles: ["Dictateur", "Dictatrice"], hered: !1 }
+  }, TRAITS = {
+    batisseur: "B\xE2tisseur",
+    conquerant: "Conqu\xE9rant",
+    marchand: "Marchand",
+    sage: "Sage",
+    cruel: "Cruel",
+    pieux: "Pieux",
+    prodigue: "Prodigue",
+    prudent: "Prudent"
+  }, ROLES = ["tradition", "militaire", "religion", "commerce", "peuple"];
+  function partyNames(era) {
+    return era <= 1 ? ["Anciens", "Guerriers", "Pr\xEAtres", "Marchands", "Pl\xE8be"] : era <= 3 ? ["Noblesse", "Chevalerie", "Clerg\xE9", "Bourgeoisie", "Paysannerie"] : era === 4 ? ["Conservateurs", "Nationalistes", "Cl\xE9ricaux", "Lib\xE9raux", "Socialistes"] : ["Conservateurs", "Nationalistes", "D\xE9mocrates-chr\xE9tiens", "Lib\xE9raux", "Sociaux-d\xE9mocrates"];
+  }
+  function hsl(h, s, l) {
+    s /= 100, l /= 100;
+    let k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+  }
+  var fmtYear = (y) => y < 0 ? `${-y} av. J.-C.` : `${y}`, MONTHS = ["janvier", "f\xE9vrier", "mars", "avril", "mai", "juin", "juillet", "ao\xFBt", "septembre", "octobre", "novembre", "d\xE9cembre"], World = class {
+    constructor(seed) {
+      this.seed = seed, this.rng = new RNG(seed * 7 + 3), this.T = generateTerrain(seed);
+      let { W, H } = this.T;
+      this.W = W, this.H = H, this.cities = [], this.nations = [], this.roads = [], this.wars = [], this.roadCell = new Uint16Array(W * H), this.cellCity = new Int32Array(W * H).fill(-1), this.nearCity = new Uint8Array(W * H), this.adj = /* @__PURE__ */ new Map(), this.day = 0, this.month = 0, this.year = -800, this.events = [], this.newEvents = [], this.gazettes = [], this.territoryVersion = 0, this.roadVersion = 0, this.cityVersion = 0, this.player = -1, this.computeSiteScores(), this.placeInitial(), this.buildInitialRoads(), this.updateTerritory();
+      for (let c of this.cities) this.computeProduction(c);
+    }
+    // ---------- utilitaires ----------
+    idx(x, y) {
+      return y * this.W + x;
+    }
+    dist(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+    nation(id) {
+      return this.nations[id];
+    }
+    citiesOf(n) {
+      return this.cities.filter((c) => c.alive && c.nation === n.id);
+    }
+    eraOf(n) {
+      return n ? n.era : 0;
+    }
+    dateStr() {
+      return `${1 + Math.floor(this.day % 30)} ${MONTHS[this.month]} ${fmtYear(this.year)}`;
+    }
+    log(type, o) {
+      let e = { y: this.year, m: this.month, type, w: 3, nations: [], ...o };
+      return this.events.push(e), this.events.length > 4e3 && this.events.splice(0, 1e3), this.newEvents.push(e), e;
+    }
+    computeSiteScores() {
+      let T = this.T, { W, H } = T;
+      this.site = new Float32Array(W * H);
+      for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+        let i = y * W + x, b = T.biome[i];
+        if (b <= B.LAKE || b === B.MOUNTAIN || b === B.SNOW) {
+          this.site[i] = -1;
+          continue;
+        }
+        let f = 0, n = 0;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++)
+          f += T.fert[i + dy * W + dx], n++;
+        let s = f / n;
+        T.river[i] ? s += 0.35 : T.nearRiver[i] && (s += 0.25), T.coastal[i] && (s += 0.3), b === B.HILLS && (s -= 0.1), b === B.SWAMP && (s -= 0.3), this.site[i] = s;
+      }
+    }
+    markNear(c, r = 8) {
+      let { W, H } = this;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r) continue;
+        let x = c.x + dx, y = c.y + dy;
+        x >= 0 && y >= 0 && x < W && y < H && (this.nearCity[y * W + x] = 1);
+      }
+    }
+    // ---------- création ----------
+    makeLeader(n, opts = {}) {
+      let r = this.rng, female = opts.female ?? r.chance(n.regime === "D\xE9mocratie" || n.regime === "R\xE9publique" ? 0.35 : 0.18), keys = Object.keys(TRAITS), traits = [];
+      for (; traits.length < 2; ) {
+        let t = r.pick(keys);
+        traits.includes(t) || traits.push(t);
+      }
+      let name = personName(n.culture, r, female);
+      opts.dynastyName && (name = opts.firstName || name);
+      let L = {
+        name,
+        female,
+        age: opts.age ?? r.int(22, 50),
+        traits,
+        dynasty: opts.dynasty ?? dynastyName(n.culture, r),
+        seed: r.int(1, 1e9),
+        party: opts.party ?? null,
+        since: this.year
+      };
+      return REGIMES[n.regime].hered && (n.names = n.names || {}, n.names[name] = (n.names[name] || 0) + 1, L.ordinal = n.names[name]), L;
+    }
+    leaderTitle(n) {
+      let L = n.leader, t = REGIMES[n.regime].titles[L.female ? 1 : 0];
+      return n.regime === "R\xE9publique" && n.era >= 3 ? L.female ? "Pr\xE9sidente" : "Pr\xE9sident" : t;
+    }
+    leaderFull(n) {
+      let L = n.leader, ord = L.ordinal && L.ordinal > 1 ? " " + ROMAN(L.ordinal) : L.ordinal === 1 && REGIMES[n.regime].hered ? " Ier" : "";
+      return `${L.name}${ord}`;
+    }
+    createNation(capital, culture, regime) {
+      let r = this.rng, id = this.nations.length, color = hsl((id * 137.508 + this.seed % 360) % 360, r.int(38, 55), r.int(50, 60)), n = {
+        id,
+        name: nationName(culture, r),
+        culture,
+        color,
+        capital: capital.id,
+        alive: !0,
+        regime,
+        treasury: 120,
+        tax: 0.15,
+        stability: 0.7,
+        legitimacy: 0.8,
+        army: 0,
+        tech: r.range(0, 60),
+        era: 0,
+        rel: {},
+        neighbors: /* @__PURE__ */ new Set(),
+        founded: this.year,
+        auto: !1,
+        exhaustion: 0,
+        parties: partyNames(0).map((nm, k) => ({ name: nm, role: ROLES[k], support: 0.2 })),
+        history: [],
+        conquests: 0,
+        shortage: 0,
+        income: 0,
+        expense: 0
+      };
+      return this.nations.push(n), n.leader = this.makeLeader(n), capital.nation = id, n;
+    }
+    createCity(x, y, nationId, pop, culture) {
+      let r = this.rng, i = this.idx(x, y), c = {
+        id: this.cities.length,
+        x,
+        y,
+        i,
+        nation: nationId,
+        pop,
+        alive: !0,
+        name: cityName(culture, r),
+        culture,
+        founded: this.year,
+        seed: r.int(1, 1e9),
+        coastal: !!this.T.coastal[i],
+        river: !!this.T.nearRiver[i],
+        buildings: {},
+        wallR: 0,
+        stock: GOODS.map(() => 2),
+        price: GOODS.map((g) => g.base),
+        prodFull: GOODS.map(() => 0),
+        imp: GOODS.map(() => 0),
+        tradeIncome: 0,
+        tradeEMA: 0,
+        K: pop * 1.5,
+        shortage: 0,
+        cells: 0
+      };
+      return this.cities.push(c), this.markNear(c), this.cityVersion++, c;
+    }
+    placeInitial() {
+      let r = this.rng, { W, H } = this, cand = [];
+      for (let i = 0; i < W * H; i++) this.site[i] > 0.4 && cand.push([i, this.site[i] + r.next() * 0.35]);
+      cand.sort((a, b) => b[1] - a[1]);
+      let caps = [];
+      for (let [i] of cand) {
+        let x = i % W, y = i / W | 0;
+        if (caps.every((c) => Math.hypot(c.x - x, c.y - y) >= 34) && caps.push({ x, y }), caps.length >= 14) break;
+      }
+      for (let p of caps) {
+        let cul = makeCulture(r), c = this.createCity(p.x, p.y, -1, r.int(2500, 6e3), cul), n = this.createNation(c, cul, r.chance(0.55) ? "Chefferie" : r.chance(0.75) ? "Royaume" : "R\xE9publique");
+        n.leader = this.makeLeader(n);
+      }
+      let vill = [];
+      for (let [i] of cand) {
+        let x = i % W, y = i / W | 0;
+        if (this.cities.every((c) => Math.hypot(c.x - x, c.y - y) >= 10) && vill.every((c) => Math.hypot(c.x - x, c.y - y) >= 10) && vill.push({ x, y, i }), vill.length >= caps.length * 3) break;
+      }
+      let owner = this.multiSourceCost(this.cities.map((c) => c.i), 60);
+      for (let v of vill) {
+        let capIdx = owner[v.i];
+        if (capIdx < 0) continue;
+        let cap2 = this.cities[capIdx];
+        this.createCity(v.x, v.y, cap2.nation, r.int(200, 900), this.nations[cap2.nation].culture);
+      }
+      for (let a of this.nations) for (let b of this.nations) a !== b && (a.rel[b.id] = r.int(-15, 25));
+      for (let n of this.nations)
+        n.army = this.citiesOf(n).reduce((s, c) => s + c.pop, 0) * 0.012, this.log("fondation", { w: 1, nations: [n.id], title: `Naissance de ${n.name}`, text: `${n.name} s'organise autour de ${this.cities[n.capital].name}.` });
+    }
+    multiSourceCost(sources, limit) {
+      let { W, H } = this, T = this.T, N = W * H, dist = new Float32Array(N).fill(1 / 0), own = new Int32Array(N).fill(-1), heap = new Heap();
+      for (sources.forEach((s, k) => {
+        dist[s] = 0, own[s] = k, heap.push(0, s);
+      }); heap.size; ) {
+        let c = heap.pop(), d = heap.lastKey;
+        if (d > dist[c]) continue;
+        let cx = c % W, cy = c / W | 0;
+        for (let k = 0; k < 8; k++) {
+          let nx = cx + NEI8[k][0], ny = cy + NEI8[k][1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          let n = ny * W + nx, nd = d + MOVE[T.biome[n]] * (k > 3 ? 1.414 : 1);
+          nd < dist[n] && nd < limit && (dist[n] = nd, own[n] = own[c], heap.push(nd, n));
+        }
+      }
+      return own;
+    }
+    // ---------- routes ----------
+    stepCost(n) {
+      let T = this.T, b = T.biome[n], c = MOVE[b];
+      return isFinite(c) ? this.roadCell[n] ? 0.3 : (T.river[n] && (c += 2.5), c) : 1 / 0;
+    }
+    findPath(a, b, maxExp = 6e4) {
+      let { W, H } = this, N = W * H, g = this._g || (this._g = new Float32Array(N)), came = this._came || (this._came = new Int32Array(N)), stamp = this._stamp || (this._stamp = new Uint32Array(N));
+      this._st = (this._st || 0) + 1;
+      let st = this._st, bx = b % W, by = b / W | 0, hf = (i) => {
+        let dx = Math.abs(i % W - bx), dy = Math.abs((i / W | 0) - by);
+        return (Math.max(dx, dy) + 0.414 * Math.min(dx, dy)) * 0.3;
+      }, heap = new Heap();
+      stamp[a] = st, g[a] = 0, came[a] = -1, heap.push(hf(a), a);
+      let exp = 0;
+      for (; heap.size; ) {
+        let c2 = heap.pop();
+        if (c2 === b) break;
+        if (++exp > maxExp) return null;
+        let cx = c2 % W, cy = c2 / W | 0;
+        for (let k = 0; k < 8; k++) {
+          let nx = cx + NEI8[k][0], ny = cy + NEI8[k][1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          let n = ny * W + nx, sc = n === b ? 1 : this.stepCost(n);
+          if (!isFinite(sc)) continue;
+          let ng = g[c2] + sc * (k > 3 ? 1.414 : 1);
+          (stamp[n] !== st || ng < g[n]) && (stamp[n] = st, g[n] = ng, came[n] = c2, heap.push(ng + hf(n), n));
+        }
+      }
+      if (stamp[b] !== st) return null;
+      let path = [], c = b;
+      for (; c !== -1; )
+        path.push(c), c = came[c];
+      return { path: path.reverse(), cost: g[b] };
+    }
+    connected(a, b) {
+      return this.adj.get(a.id)?.has(b.id);
+    }
+    buildRoad(ca, cb, silent = !0) {
+      if (ca === cb || this.connected(ca, cb)) return null;
+      let res = this.findPath(ca.i, cb.i);
+      if (!res) return null;
+      for (let n of res.path) this.roadCell[n]++;
+      let road = { a: ca.id, b: cb.id, path: res.path, year: this.year, rail: !1, len: res.path.length };
+      return this.roads.push(road), this.adj.has(ca.id) || this.adj.set(ca.id, /* @__PURE__ */ new Set()), this.adj.has(cb.id) || this.adj.set(cb.id, /* @__PURE__ */ new Set()), this.adj.get(ca.id).add(cb.id), this.adj.get(cb.id).add(ca.id), this.roadVersion++, silent || this.log("route", { w: 2, nations: [ca.nation, cb.nation], text: `Une route relie d\xE9sormais ${ca.name} \xE0 ${cb.name}.` }), road;
+    }
+    buildInitialRoads() {
+      let cs = this.cities;
+      for (let c of cs) {
+        let near = cs.filter((o) => o !== c).map((o) => [o, this.dist(c, o)]).filter((p) => p[1] < 30).sort((a, b) => a[1] - b[1]).slice(0, 2);
+        for (let [o] of near) this.buildRoad(c, o);
+      }
+    }
+    // ---------- territoire ----------
+    cityStrength(c) {
+      return 1 + Math.log10(Math.max(100, c.pop)) * 0.4;
+    }
+    cityReach(c) {
+      let n = this.nations[c.nation];
+      return 4 + Math.log10(Math.max(100, c.pop)) * 2.4 + (n ? n.era : 0) * 0.9;
+    }
+    updateTerritory() {
+      let { W, H } = this, T = this.T, N = W * H, dist = new Float32Array(N).fill(1 / 0), raw = new Float32Array(N), own = new Int32Array(N).fill(-1), heap = new Heap(), alive = this.cities.filter((c) => c.alive), str = [], reach = [];
+      for (let c of alive)
+        str[c.id] = this.cityStrength(c), reach[c.id] = this.cityReach(c), dist[c.i] = 0, own[c.i] = c.id, heap.push(0, c.i);
+      for (; heap.size; ) {
+        let c = heap.pop(), d = heap.lastKey;
+        if (d > dist[c]) continue;
+        let cid = own[c], cx = c % W, cy = c / W | 0;
+        for (let k = 0; k < 8; k++) {
+          let nx = cx + NEI8[k][0], ny = cy + NEI8[k][1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          let n = ny * W + nx, mc = MOVE[T.biome[n]];
+          if (!isFinite(mc)) continue;
+          this.roadCell[n] && (mc *= 0.6), mc *= k > 3 ? 1.414 : 1;
+          let nr = raw[c] + mc;
+          if (nr > reach[cid]) continue;
+          let nd = d + mc / str[cid];
+          nd < dist[n] && (dist[n] = nd, raw[n] = nr, own[n] = cid, heap.push(nd, n));
+        }
+      }
+      this.cellCity = own;
+      let cn = this.cellNation = new Int16Array(N).fill(-1);
+      for (let i = 0; i < N; i++) own[i] >= 0 && (cn[i] = this.cities[own[i]].nation);
+      for (let n of this.nations) n.neighbors = /* @__PURE__ */ new Set();
+      for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) {
+        let i = y * W + x, a = cn[i];
+        for (let j of [i + 1, i + W]) {
+          let b = cn[j];
+          a >= 0 && b >= 0 && a !== b && (this.nations[a].neighbors.add(b), this.nations[b].neighbors.add(a));
+        }
+      }
+      this.territoryVersion++;
+    }
+    computeProduction(c) {
+      let { W, H } = this, T = this.T, R = 5, p = GOODS.map(() => 0), cells = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (dx * dx + dy * dy > R * R) continue;
+        let x = c.x + dx, y = c.y + dy;
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        let i = y * W + x;
+        if (this.cellCity[i] !== c.id) continue;
+        cells++, p[0] += 0.13 * T.fert[i];
+        let row = PROD[T.biome[i]];
+        if (row) for (let g = 1; g < 6; g++) p[g] += row[g - 1];
+      }
+      c.coastal && (p[0] += c.buildings.port ? 2.2 : 0.8), c.prodFull = p, c.cells = cells;
+    }
+    // ---------- simulation ----------
+    stepDay() {
+      this.day++, this.day % 30 === 0 && this.monthly();
+    }
+    monthly() {
+      this.month = (this.month + 1) % 12, this.month === 0 && (this.year++, this.year === 0 && (this.year = 1));
+      let alive = this.cities.filter((c) => c.alive);
+      for (let n of this.nations)
+        n.shortage = 0, n.monthTrade = 0;
+      for (let c of alive) {
+        let n = this.nations[c.nation], era = n.era, E = ERAS[era], labour = Math.min(6, Math.sqrt(c.pop / 3e3 + 0.1)) * (1 + 0.45 * era), bmul = [1, 1, 1, (c.buildings.manufacture ? 1.6 : 1) * (c.buildings.usine ? 2.2 : 1), (c.buildings.manufacture ? 1.8 : 1) * (c.buildings.usine ? 2.2 : 1), 1];
+        c.tradeIncome = 0;
+        for (let g = 0; g < 6; g++) {
+          let prod = g === 0 ? c.prodFull[0] * E.food + (c.extraFood || 0) : c.prodFull[g] * labour * bmul[g], cons = c.pop / 1e3 * GOODS[g].cons * (g === 0 ? 1 : 1 + 0.35 * era);
+          c.stock[g] += prod - cons, c.stock[g] < 0 ? (g === 0 && (c.shortage = Math.min(1, -c.stock[g] / Math.max(0.01, cons))), c.stock[g] = 0) : g === 0 && (c.shortage *= 0.5), c.stock[g] = Math.min(c.stock[g], cons * 24 + 5), c.price[g] = GOODS[g].base * Math.max(0.3, Math.min(4, (cons * 4 + 0.4) / (c.stock[g] + 0.4))), c._cons = c._cons || [], c._cons[g] = cons;
+        }
+      }
+      this.trade(alive);
+      for (let c of alive) {
+        let n = this.nations[c.nation], era = n.era, E = ERAS[era];
+        c.tradeEMA = c.tradeEMA * 0.92 + c.tradeIncome * 0.08;
+        let foodK = (c.prodFull[0] * E.food + c.imp[0]) * 880 * (c.id === n.capital ? 1.2 : 1), K = foodK;
+        K += Math.min(foodK * (0.4 + era * 0.3), c.tradeEMA * (era >= 3 ? 220 * era : 90)), c.buildings.usine && (K += 22e3 * (era - 3)), c.buildings.manufacture && (K += 4e3), c.buildings.marche && (K *= 1.1), c.K = Math.max(150, K), c.extraFood = Math.max(0, Math.min(c.pop, K) - foodK) / 1e3;
+        let r = era >= 4 ? 7e-3 : 4e-3;
+        c.pop += c.pop * r * (1 - c.pop / c.K) + this.rng.gauss() * c.pop * 15e-4, c.shortage > 0.05 && (c.pop *= 1 - 0.025 * c.shortage, n.shortage = Math.max(n.shortage, c.shortage)), c.pop = Math.max(60, c.pop);
+      }
+      for (let n of this.nations) n.alive && this.nationMonthly(n);
+      this.warsMonthly(), this.month === 0 && this.yearly();
+    }
+    trade(alive) {
+      let pairs = [];
+      for (let r of this.roads) pairs.push([this.cities[r.a], this.cities[r.b], 1]);
+      let ports = alive.filter((c) => c.buildings.port);
+      for (let i = 0; i < ports.length; i++) for (let j = i + 1; j < ports.length; j++)
+        this.dist(ports[i], ports[j]) < 55 && pairs.push([ports[i], ports[j], 0.6]);
+      for (let c of alive) c.imp = c.imp.map((v) => v * 0.9);
+      for (let [a, b, eff] of pairs) {
+        if (!a.alive || !b.alive) continue;
+        let na = this.nations[a.nation], nb = this.nations[b.nation];
+        if (na !== nb && this.atWar(na.id, nb.id)) continue;
+        let pact = na !== nb && na.pacts?.has(nb.id) ? 1.4 : 1;
+        for (let g = 0; g < 6; g++) {
+          let s = a, d = b;
+          a.price[g] > b.price[g] && (s = b, d = a);
+          let diff = d.price[g] - s.price[g];
+          if (diff < GOODS[g].base * 0.2) continue;
+          let q = Math.min(s.stock[g] * 0.15, d._cons[g] * 2 + 0.2) * eff * pact;
+          if (q <= 1e-3) continue;
+          s.stock[g] -= q, d.stock[g] += q, d.imp[g] += q * 0.1;
+          let profit = q * diff * 0.12, ms = s.buildings.marche ? 1.35 : 1, md = d.buildings.marche ? 1.35 : 1;
+          s.tradeIncome += profit * 0.5 * ms, d.tradeIncome += profit * 0.5 * md, na !== nb && (na.monthTrade += profit, nb.monthTrade += profit, na._tradeWith = na._tradeWith || {}, na._tradeWith[nb.id] = (na._tradeWith[nb.id] || 0) + profit);
+        }
+      }
+    }
+    nationMonthly(n) {
+      let cs = this.citiesOf(n);
+      if (!cs.length) return;
+      let pop = cs.reduce((s, c) => s + c.pop, 0);
+      n.pop = pop;
+      let base = cs.reduce((s, c) => s + c.pop / 1e3 * (0.5 + 0.25 * n.era) + c.tradeIncome, 0), T = n.leader.traits, income = base * n.tax * 3.2 * (T.includes("marchand") ? 1.1 : 1), atWar = this.warsOf(n.id).length, target = pop * 0.012 * (atWar ? 1.7 : 1) * (T.includes("conquerant") ? 1.3 : 1) * (n.regime === "Dictature" ? 1.4 : 1);
+      n.treasury < 0 && (target *= 0.6), n.army += (target - n.army) * 0.05;
+      let nb = cs.reduce((s, c) => s + Object.keys(c.buildings).length, 0), upkeep = n.army * 4e-3 * (1 + n.era * 0.3) + cs.length * 0.12 * (1 + n.era * 0.5) + nb * 0.08 * (1 + n.era * 0.3) + (T.includes("prodigue") ? income * 0.2 : 0) + Math.max(0, n.treasury - Math.max(300, income * 60)) * 0.02;
+      n.income = income, n.expense = upkeep, n.treasury += income - upkeep;
+      let temples = cs.filter((c) => c.buildings.temple).length, t = 0.66 - (n.tax - 0.15) * 1.8 - atWar * 0.07 - n.shortage * 0.4 + temples / cs.length * 0.12 + (n.legitimacy - 0.6) * 0.25 - Math.max(0, cs.length - 9) * 0.012;
+      T.includes("pieux") && (t += 0.05), T.includes("sage") && (t += 0.04), T.includes("cruel") && (t -= 0.07), T.includes("prudent") && (t += 0.02), n.era >= 4 && REGIMES[n.regime].hered && (t -= 0.1), n.regime === "Dictature" && (t -= 0.04), n.treasury < 0 && (t -= 0.15), n.stability += (Math.max(0, Math.min(1, t)) - n.stability) * 0.06 + this.rng.gauss() * 8e-3, n.stability = Math.max(0, Math.min(1, n.stability));
+      let w = {
+        tradition: 1 + (REGIMES[n.regime].hered ? 0.4 : 0) + n.stability * 0.5,
+        militaire: 0.8 + atWar * 0.8 + (n.conquests ? 0.3 : 0),
+        religion: 0.8 + temples / cs.length + n.shortage,
+        commerce: 0.7 + Math.min(1.5, n.monthTrade * 0.3 + cs.reduce((s, c) => s + c.tradeIncome, 0) / Math.max(1, pop / 1e3) * 2) + (0.2 - n.tax),
+        peuple: 0.7 + Math.max(0, n.tax - 0.15) * 4 + n.shortage * 2 + n.era * 0.15
+      }, tot = n.parties.reduce((s, p) => s + w[p.role], 0);
+      for (let p of n.parties) p.support += (w[p.role] / tot - p.support) * 0.03;
+    }
+    warsOf(id) {
+      return this.wars.filter((w) => w.a === id || w.b === id);
+    }
+    atWar(a, b) {
+      return this.wars.some((w) => w.a === a && w.b === b || w.a === b && w.b === a);
+    }
+    declareWar(a, b) {
+      if (a === b || this.atWar(a, b)) return !1;
+      let A = this.nations[a], Bn = this.nations[b];
+      return this.wars.push({ a, b, start: this.year, months: 0, score: 0 }), A.rel[b] = Math.min(A.rel[b] ?? 0, -60), Bn.rel[a] = Math.min(Bn.rel[a] ?? 0, -60), A.pacts?.delete(b), Bn.pacts?.delete(a), this.log("guerre", { w: 9, nations: [a, b], title: `${A.name} d\xE9clare la guerre \xE0 ${Bn.name} !`, text: `${this.leaderTitle(A)} ${this.leaderFull(A)} lance ses arm\xE9es contre ${Bn.name}.`, body: `Les tambours r\xE9sonnent aux fronti\xE8res. ${A.name} aligne environ ${Math.round(A.army * 10).toLocaleString("fr")} soldats face aux ${Math.round(Bn.army * 10).toLocaleString("fr")} de ${Bn.name}. Les marchands ferment leurs comptoirs.` }), !0;
+    }
+    makePeace(w, reason) {
+      this.wars = this.wars.filter((x) => x !== w);
+      let A = this.nations[w.a], Bn = this.nations[w.b];
+      if (!A.alive || !Bn.alive) return;
+      let win = w.score > 0 ? A : Bn;
+      A.rel[Bn.id] = -20, Bn.rel[A.id] = -20, this.log("paix", { w: 7, nations: [w.a, w.b], title: `Paix entre ${A.name} et ${Bn.name}`, text: `Un trait\xE9 met fin \xE0 la guerre entre ${A.name} et ${Bn.name}${Math.abs(w.score) > 3 ? `, \xE0 l'avantage de ${win.name}` : ""}.`, body: reason || `Apr\xE8s ${w.months} mois de combats, les pl\xE9nipotentiaires signent la paix.` });
+    }
+    offerPeace(a, b) {
+      let w = this.wars.find((x) => x.a === a && x.b === b || x.a === b && x.b === a);
+      if (!w) return !1;
+      let other = this.nations[b];
+      return (w.a === b ? w.score : -w.score) < 0 || w.months > 14 || other.stability < 0.35 || this.rng.chance(0.25) ? (this.makePeace(w, "La paix est propos\xE9e et accept\xE9e."), !0) : !1;
+    }
+    warsMonthly() {
+      for (let w of [...this.wars]) {
+        let A = this.nations[w.a], Bn = this.nations[w.b];
+        if (!A.alive || !Bn.alive) {
+          this.wars = this.wars.filter((x) => x !== w);
+          continue;
+        }
+        w.months++;
+        let sa = A.army * (1 + A.era * 0.25) * this.rng.range(0.7, 1.3), sb = Bn.army * (1 + Bn.era * 0.25) * this.rng.range(0.7, 1.3);
+        if (A.army = Math.max(1, A.army - sb * 0.025), Bn.army = Math.max(1, Bn.army - sa * 0.025), w.score += sa > sb ? 1 : -1, A.exhaustion += 0.02, Bn.exhaustion += 0.02, w.months % 3 === 0) {
+          let winner = sa > sb ? A : Bn, loser = winner === A ? Bn : A;
+          Math.max(sa, sb) / Math.max(1, Math.min(sa, sb)) > 1.15 && this.tryCapture(winner, loser);
+        }
+        if (!A.alive || !Bn.alive) {
+          this.wars = this.wars.filter((x) => x !== w);
+          continue;
+        }
+        let tired = w.months > 12 && this.rng.chance(0.03 + Math.abs(w.score) * 4e-3 + w.months * 8e-4), ai = w.a !== this.player && w.b !== this.player || A.auto && Bn.auto;
+        tired && ai ? this.makePeace(w) : tired && w.months > 30 && this.rng.chance(0.3) && this.makePeace(w, "\xC9puis\xE9s, les deux camps signent une paix blanche.");
+      }
+    }
+    tryCapture(win, lose) {
+      let lc = this.citiesOf(lose), wc = this.citiesOf(win);
+      if (!lc.length || !wc.length) return;
+      let best = null, bd = 1 / 0;
+      for (let c of lc) for (let o of wc) {
+        let d = this.dist(c, o);
+        d < bd && (bd = d, best = c);
+      }
+      if (!best || bd > 45) return;
+      let def = best.buildings.muraille ? 0.45 : 1;
+      if (!this.rng.chance(0.5 * def)) {
+        best.buildings.muraille && this.rng.chance(0.3) && this.log("siege", { w: 4, nations: [win.id, lose.id], city: best.id, text: `Les murailles de ${best.name} repoussent l'assaut de ${win.name}.` });
+        return;
+      }
+      this.transferCity(best, win, "conquest");
+    }
+    transferCity(c, to, why) {
+      let from = this.nations[c.nation], wasCapital = from.capital === c.id;
+      c.nation = to.id, c.pop *= why === "conquest" ? 0.85 : 1, to.conquests++, this.cityVersion++, why === "conquest" && this.log("conquete", { w: wasCapital ? 9 : 6, nations: [to.id, from.id], city: c.id, title: `${c.name} tombe aux mains de ${to.name}`, text: `${to.name} s'empare de ${c.name}${wasCapital ? `, capitale de ${from.name}` : ""}.`, body: `Apr\xE8s un si\xE8ge \xE9prouvant, les troupes de ${to.name} entrent dans ${c.name}. La population, estim\xE9e \xE0 ${Math.round(c.pop).toLocaleString("fr")} \xE2mes, attend le sort que lui r\xE9serve son nouveau ma\xEEtre.` });
+      let rest = this.citiesOf(from);
+      rest.length ? wasCapital && (rest.sort((a, b) => b.pop - a.pop), from.capital = rest[0].id, from.stability *= 0.7, from.legitimacy *= 0.7, this.log("capitale", { w: 5, nations: [from.id], text: `${from.name} transf\xE8re sa capitale \xE0 ${rest[0].name}.` })) : (from.alive = !1, this.wars = this.wars.filter((w) => w.a !== from.id && w.b !== from.id), this.log("chute", { w: 10, nations: [from.id, to.id], title: `Chute de ${from.name}`, text: `${from.name} cesse d'exister, absorb\xE9 par ${to.name}.`, body: `Fond\xE9 en ${fmtYear(from.founded)}, ${from.name} dispara\xEEt des cartes. Les chroniqueurs se souviendront de ${this.leaderTitle(from).toLowerCase()} ${this.leaderFull(from)}, son dernier souverain.` }));
+    }
+    yearly() {
+      let r = this.rng;
+      for (let n of this.nations) if (n.alive) {
+        n.exhaustion = Math.max(0, n.exhaustion - 0.15), n.legitimacy = Math.min(1, n.legitimacy + 0.02);
+        let cs = this.citiesOf(n), pop = cs.reduce((s, c) => s + c.pop, 0), unis = cs.filter((c) => c.buildings.universite).length, gain = 0.3 + Math.sqrt(pop) / 420 + Math.min(unis, 4) * 0.5 + (n.leader.traits.includes("sage") ? 0.4 : 0) + Math.min(1, n.monthTrade * 0.05);
+        for (let nb of n.neighbors) {
+          let o = this.nations[nb];
+          o.alive && o.tech > n.tech && (gain += Math.min(1, (o.tech - n.tech) * 2e-3));
+        }
+        n.tech += gain / (1 + n.era * 0.25);
+        let era = 0;
+        for (let e = 0; e < ERAS.length; e++) n.tech >= ERAS[e].tech && (era = e);
+        era > n.era && this.enterEra(n, era), n.leader.age++;
+        let a = n.leader.age, p = a < 35 ? 6e-3 : a < 50 ? 0.014 : a < 62 ? 0.035 : a < 72 ? 0.08 : 0.17;
+        r.chance(p) ? this.leaderDies(n) : REGIMES[n.regime].term && this.year - n.leader.since >= REGIMES[n.regime].term && this.election(n), n.stability < 0.22 && r.chance(0.18) ? this.revolution(n) : n.stability < 0.3 && cs.length >= 3 && r.chance(0.2) && this.secession(n), this.randomEvents(n, cs);
+        for (let c of cs)
+          c.pop > 3e3 && n.era >= 0 && !c.wallR && c.buildings.muraille && (c.wallR = 1);
+      }
+      for (let a of this.nations) if (a.alive) {
+        for (let b of this.nations) if (b.alive && a.id < b.id) {
+          let d = r.gauss() * 2;
+          a.neighbors.has(b.id) && (d -= 2.5), a._tradeWith?.[b.id] && (d += Math.min(4, a._tradeWith[b.id] * 0.2)), a.culture === b.culture && (d += 1);
+          let v = Math.max(-100, Math.min(100, ((a.rel[b.id] ?? 0) + (b.rel[a.id] ?? 0)) / 2 + d));
+          a.rel[b.id] = v, b.rel[a.id] = v;
+        }
+      }
+      for (let n of this.nations) n._tradeWith = {};
+      for (let n of this.nations) n.alive && (n.id !== this.player || n.auto) && this.ai(n);
+      for (let rd of this.roads) {
+        let a = this.cities[rd.a], b = this.cities[rd.b];
+        !rd.rail && a.alive && b.alive && this.nations[a.nation].era >= 4 && this.nations[b.nation].era >= 4 && a.pop > 12e3 && b.pop > 8e3 && (rd.rail = !0, this.roadVersion++, r.chance(0.3) && this.log("rail", { w: 3, nations: [a.nation], text: `La ligne de chemin de fer ${a.name}\u2013${b.name} est inaugur\xE9e.` }));
+      }
+      this.updateTerritory();
+      for (let c of this.cities) c.alive && this.computeProduction(c);
+    }
+    enterEra(n, era) {
+      n.era = era;
+      let old = n.parties;
+      n.parties = partyNames(era).map((nm, k) => ({ name: nm, role: ROLES[k], support: old[k] ? old[k].support : 0.2 }));
+      let extra = "";
+      era >= 1 && n.regime === "Chefferie" && (n.regime = "Royaume", extra = " La chefferie devient un royaume."), this.log("ere", { w: 6, nations: [n.id], title: `${n.name} entre dans l'${ERAS[era].name.startsWith("\xC2") || ERAS[era].name.startsWith("\xC8") || ERAS[era].name.startsWith("A"), ""}${ERAS[era].name}`, text: `${n.name} entre dans une nouvelle \xE8re : ${ERAS[era].name}.${extra}`, body: `Savants et artisans de ${n.name} rivalisent d'inventions. On dit que le monde ne sera plus jamais le m\xEAme.${extra}` });
+    }
+    leaderDies(n) {
+      let old = n.leader, oldFull = this.leaderFull(n), oldTitle = this.leaderTitle(n), reign = this.year - old.since, cause = this.warsOf(n.id).length && this.rng.chance(0.3) ? "tomb\xE9 au combat" : this.rng.pick(["emport\xE9 par la fi\xE8vre", "mort dans son sommeil", "mort de vieillesse", "victime d'une chute de cheval", "empoisonn\xE9, murmure-t-on"]);
+      REGIMES[n.regime].hered ? (n.leader = this.makeLeader(n, { dynasty: old.dynasty, age: this.rng.int(14, 42) }), this.rng.chance(0.12) && (n.legitimacy -= 0.3, n.stability -= 0.15)) : n.leader = this.makeLeader(n, { party: this.topParty(n).name }), this.log("mort", { w: n.id === this.player ? 9 : 5, nations: [n.id], title: `${oldTitle} ${oldFull} est mort${old.female ? "e" : ""}`, text: `${oldTitle} ${oldFull} de ${n.name} est ${cause.replace("mort", old.female ? "morte" : "mort").replace("tomb\xE9", old.female ? "tomb\xE9e" : "tomb\xE9").replace("emport\xE9", old.female ? "emport\xE9e" : "emport\xE9").replace("empoisonn\xE9", old.female ? "empoisonn\xE9e" : "empoisonn\xE9")} \xE0 ${old.age} ans. ${this.leaderFull(n)} ${old.female, "lui"} succ\xE8de.`, body: `Apr\xE8s ${reign} ann\xE9es au pouvoir, ${oldFull} s'\xE9teint. ${this.leaderTitle(n)} ${this.leaderFull(n)}, ${n.leader.age} ans, ${REGIMES[n.regime].hered ? `de la maison ${n.leader.dynasty}` : `issu${n.leader.female ? "e" : ""} du parti ${n.leader.party}`}, prend la t\xEAte de ${n.name}.`, obit: { name: oldFull, title: oldTitle, age: old.age, reign } });
+    }
+    topParty(n) {
+      return [...n.parties].sort((a, b) => b.support - a.support)[0];
+    }
+    election(n) {
+      let sorted = [...n.parties].sort((a, b) => b.support - a.support), win = this.rng.chance(0.75) ? sorted[0] : sorted[1];
+      if (this.rng.chance(0.3) && n.leader.party === win.name) {
+        n.leader.since = this.year, this.log("election", { w: 4, nations: [n.id], text: `${this.leaderFull(n)} est r\xE9\xE9lu${n.leader.female ? "e" : ""} \xE0 la t\xEAte de ${n.name}.` });
+        return;
+      }
+      n.leader = this.makeLeader(n, { party: win.name }), this.log("election", { w: n.id === this.player ? 7 : 4, nations: [n.id], title: `\xC9lections : triomphe des ${win.name.toLowerCase()}`, text: `\xC9lections en ${n.name} : ${win.name} en t\xEAte (${Math.round(win.support * 100)} %). ${this.leaderFull(n)} prend ses fonctions.`, body: `Les ${win.name} l'emportent avec ${Math.round(win.support * 100)} % des voix. ${this.leaderTitle(n)} ${this.leaderFull(n)}, ${n.leader.age} ans, promet ${win.role === "commerce" ? "la prosp\xE9rit\xE9 des comptoirs" : win.role === "peuple" ? "du pain pour tous" : win.role === "militaire" ? "la grandeur par les armes" : win.role === "religion" ? "le retour \xE0 la pi\xE9t\xE9" : "l'ordre et la tradition"}.` });
+    }
+    revolution(n) {
+      let top = this.topParty(n), reg = {
+        tradition: n.era >= 2 ? "Empire" : "Royaume",
+        militaire: n.era >= 3 ? "Dictature" : "Empire",
+        religion: "Th\xE9ocratie",
+        commerce: "R\xE9publique",
+        peuple: n.era >= 4 ? "D\xE9mocratie" : "R\xE9publique"
+      }[top.role];
+      reg === n.regime && (reg = n.era >= 4 ? "D\xE9mocratie" : "R\xE9publique");
+      let oldReg = n.regime, oldFull = this.leaderFull(n);
+      n.regime = reg, n.leader = this.makeLeader(n, { party: top.name }), n.stability = 0.5, n.legitimacy = 0.45, this.log("revolution", { w: 10, nations: [n.id], title: `R\xE9volution en ${n.name} !`, text: `R\xE9volution en ${n.name} : ${oldReg.toLowerCase()} renvers\xE9${oldReg === "Royaume" || oldReg === "Empire" ? "" : "e"}, ${reg} proclam\xE9${reg === "Empire" || reg === "Royaume" ? "" : "e"}.`, body: `Port\xE9s par les ${top.name}, les insurg\xE9s chassent ${oldFull}. ${this.leaderTitle(n)} ${this.leaderFull(n)} proclame ${reg === "Empire" || reg === "Royaume" ? "l'" : "la "}${reg} et promet une \xE8re nouvelle.` });
+    }
+    secession(n) {
+      let cs = this.citiesOf(n).filter((c) => c.id !== n.capital);
+      if (!cs.length) return;
+      let cap2 = this.cities[n.capital];
+      cs.sort((a, b) => this.dist(b, cap2) - this.dist(a, cap2));
+      let rebel = cs[0], cul = driftCulture(n.culture, this.rng), nn = this.createNation(rebel, cul, n.era >= 3 ? "R\xE9publique" : "Royaume");
+      nn.tech = n.tech, nn.era = n.era, nn.parties = partyNames(n.era).map((nm, k) => ({ name: nm, role: ROLES[k], support: 0.2 })), nn.founded = this.year, nn.army = n.army * 0.25, n.army *= 0.75, nn.treasury = 60;
+      for (let o of this.nations)
+        nn.rel[o.id] = o.id === n.id ? -50 : 0, o.rel[nn.id] = o.id === n.id ? -50 : 0;
+      for (let c of cs.slice(1)) this.dist(c, rebel) < 14 && this.rng.chance(0.6) && (c.nation = nn.id);
+      rebel.nation = nn.id, n.stability += 0.1, this.cityVersion++, this.log("secession", { w: 9, nations: [nn.id, n.id], city: rebel.id, title: `${rebel.name} proclame son ind\xE9pendance`, text: `${rebel.name} fait s\xE9cession de ${n.name} et fonde ${nn.name}.`, body: `Lass\xE9s des imp\xF4ts et de l'\xE9loignement de ${cap2.name}, les notables de ${rebel.name} proclament ${nn.name}. ${this.leaderTitle(nn)} ${this.leaderFull(nn)} en prend la t\xEAte.` }), this.rng.chance(0.5) && this.declareWar(n.id, nn.id);
+    }
+    randomEvents(n, cs) {
+      let r = this.rng;
+      if (!cs.length) return;
+      let big = [...cs].sort((a, b) => b.pop - a.pop)[0];
+      if (n.era < 4 && r.chance(0.012)) {
+        for (let c of cs) c.pop *= r.range(0.7, 0.85);
+        n.stability -= 0.1, this.log("peste", { w: 8, nations: [n.id], title: `La peste ravage ${n.name}`, text: `Une \xE9pid\xE9mie frappe ${n.name}. Les morts se comptent par milliers.`, body: `Partie des quais de ${big.name}, la maladie s'est r\xE9pandue le long des routes. Les m\xE9decins, impuissants, recommandent la pri\xE8re et le vinaigre.` });
+      } else if (r.chance(0.01)) {
+        let c = r.pick(cs);
+        c.pop *= 0.94, this.log("incendie", { w: 4, nations: [n.id], city: c.id, text: `Un grand incendie d\xE9truit plusieurs quartiers de ${c.name}.` });
+      } else r.chance(0.02) && n.stability > 0.6 ? (n.tech += 25, n.stability = Math.min(1, n.stability + 0.05), this.log("ageor", { w: 5, nations: [n.id], title: `\xC2ge d'or \xE0 ${big.name}`, text: `Arts et sciences fleurissent \xE0 ${big.name}.`, body: `Po\xE8tes, architectes et savants affluent \xE0 ${big.name}. Le palais commande fresques et trait\xE9s.` })) : n.shortage > 0.4 && r.chance(0.12) && this.log("famine", { w: 7, nations: [n.id], title: `Famine en ${n.name}`, text: `Les greniers de ${n.name} sont vides : la famine s\xE9vit.`, body: `Le prix du bl\xE9 s'envole sur les march\xE9s de ${big.name} (${big.price[0].toFixed(1)} ${ERAS[n.era].currency} la mesure). Des \xE9meutes \xE9clatent.` });
+    }
+    // ---------- actions (joueur & IA) ----------
+    canBuild(c, key) {
+      let b = BUILDINGS[key], n = this.nations[c.nation];
+      return c.buildings[key] ? "d\xE9j\xE0 construit" : n.era < b.era ? `requiert ${ERAS[b.era].name}` : b.coastal && !c.coastal ? "ville non c\xF4ti\xE8re" : n.treasury < b.cost(c) ? "tr\xE9sor insuffisant" : null;
+    }
+    build(c, key, silent) {
+      let why = this.canBuild(c, key);
+      if (why) return why;
+      let n = this.nations[c.nation];
+      n.treasury -= BUILDINGS[key].cost(c), c.buildings[key] = this.year, key === "muraille" && (c.wallR = 1), key === "port" && this.computeProduction(c), this.cityVersion++;
+      let nm = key === "temple" ? TEMPLE_NAMES[n.era] : BUILDINGS[key].name;
+      return (!silent || n.id === this.player) && this.log("construction", { w: key === "muraille" || key === "universite" ? 4 : 2, nations: [n.id], city: c.id, text: `${c.name} : construction ${key === "muraille" ? "des murailles" : `d'un${["temple", "port", "marche"].includes(key) ? "" : "e"} ${nm.toLowerCase()}`}.` }), null;
+    }
+    colonySite(n) {
+      let { W, H } = this, own = this.citiesOf(n), best = -1, bs = 0.3, r = this.rng;
+      for (let k = 0; k < 2500; k++) {
+        let src = r.pick(own), x = Math.round(src.x + r.range(-20, 20)), y = Math.round(src.y + r.range(-20, 20));
+        if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) continue;
+        let i = y * W + x;
+        if (this.nearCity[i] || this.site[i] <= bs) continue;
+        let cn = this.cellNation[i];
+        cn !== -1 && cn !== n.id || (bs = this.site[i], best = i);
+      }
+      return best;
+    }
+    colonyCost(n) {
+      return 120 + 20 * this.citiesOf(n).length;
+    }
+    foundColony(n, silent) {
+      let cost = this.colonyCost(n);
+      if (n.treasury < cost) return `tr\xE9sor insuffisant (${cost})`;
+      let i = this.colonySite(n);
+      if (i < 0) return "aucun site libre \xE0 proximit\xE9";
+      let x = i % this.W, y = i / this.W | 0, own = this.citiesOf(n).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)), c = this.createCity(x, y, n.id, this.rng.int(180, 350), n.culture);
+      return n.treasury -= cost, this.buildRoad(own[0], c), this.computeProduction(c), this.log("colonie", { w: 3, nations: [n.id], city: c.id, text: `${n.name} fonde ${c.name}.` }), c;
+    }
+    proposePact(a, b) {
+      let A = this.nations[a], Bn = this.nations[b];
+      return (A.rel[b] ?? 0) < -10 || this.atWar(a, b) ? !1 : (A.pacts = A.pacts || /* @__PURE__ */ new Set(), Bn.pacts = Bn.pacts || /* @__PURE__ */ new Set(), A.pacts.add(b), Bn.pacts.add(a), A.rel[b] += 15, Bn.rel[a] += 15, this.log("pacte", { w: 4, nations: [a, b], text: `${A.name} et ${Bn.name} signent un trait\xE9 de commerce.` }), !0);
+    }
+    ai(n) {
+      let r = this.rng, cs = this.citiesOf(n).sort((a, b) => b.pop - a.pop);
+      if (!cs.length) return;
+      let T = n.leader.traits, rich = n.treasury > Math.max(400, n.income * 120);
+      n.tax += ((n.treasury < 50 ? 0.22 : n.stability < 0.45 || rich ? 0.08 : 0.16) - n.tax) * 0.3;
+      let builder = T.includes("batisseur") ? 2 : 1;
+      for (let k = 0; k < builder; k++)
+        for (let c of cs) {
+          let wants = [];
+          c.pop > 2500 && (this.warsOf(n.id).length || r.chance(0.3)) && wants.push("muraille"), c.pop > 1200 && wants.push("marche"), (n.stability < 0.65 || T.includes("pieux")) && wants.push("temple"), c.coastal && c.pop > 800 && wants.push("port"), c.pop > 7e3 && wants.push("universite"), c.pop > 9e3 && wants.push("manufacture"), c.pop > 15e3 && wants.push("usine");
+          let key = wants.find((w) => !this.canBuild(c, w) && n.treasury > BUILDINGS[w].cost(c) * 1.4);
+          if (key) {
+            this.build(c, key, !0);
+            break;
+          }
+        }
+      if (n.treasury > this.colonyCost(n) * 1.5 && r.chance(0.3) && this.foundColony(n, !0), r.chance(0.35)) {
+        let a = r.pick(cs), others = this.cities.filter((o) => o.alive && o !== a && !this.connected(a, o) && this.dist(a, o) < 24 && !this.atWar(n.id, o.nation)).sort((x, y) => this.dist(a, x) - this.dist(a, y));
+        others.length && n.treasury > 40 && this.buildRoad(a, others[0], others[0].nation === n.id) && (n.treasury -= 25);
+      }
+      if (!this.warsOf(n.id).length && n.stability > 0.45 && n.exhaustion < 0.5)
+        for (let nb of n.neighbors) {
+          let o = this.nations[nb];
+          if (!o.alive) continue;
+          let aggr = (T.includes("conquerant") ? 0.08 : 0.025) + (n.regime === "Dictature" || n.regime === "Empire" ? 0.03 : 0);
+          if ((n.rel[nb] ?? 0) < -35 && n.army > o.army * 1.25 && r.chance(aggr * 2)) {
+            this.declareWar(n.id, nb);
+            break;
+          }
+          (n.rel[nb] ?? 0) > 35 && !n.pacts?.has(nb) && r.chance(0.1) && nb !== this.player && this.proposePact(n.id, nb);
+        }
+    }
+  };
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/city.js
+  var cityRadius = (pop) => 0.16 * Math.pow(Math.max(100, pop), 0.31), WARD_TYPES = {
+    centre: { name: "C\u0153ur de ville", fill: 1 },
+    noble: { name: "Quartier noble", fill: 0.6 },
+    marchand: { name: "Quartier marchand", fill: 0.95 },
+    artisan: { name: "Quartier des artisans", fill: 0.9 },
+    populaire: { name: "Quartier populaire", fill: 1 },
+    port: { name: "Quartier du port", fill: 0.8 },
+    temple: { name: "Quartier du temple", fill: 0.6 },
+    faubourg: { name: "Faubourg", fill: 0.55 },
+    industriel: { name: "Quartier industriel", fill: 0.85 },
+    parc: { name: "Jardins", fill: 0 },
+    universite: { name: "Quartier latin", fill: 0.7 }
+  }, ROOFS = [
+    { base: [196, 118, 82], noble: [214, 168, 120], poor: [168, 112, 80], ind: [150, 130, 110], ground: [226, 208, 166] },
+    { base: [192, 112, 78], noble: [226, 196, 150], poor: [160, 108, 78], ind: [150, 130, 110], ground: [226, 210, 170] },
+    { base: [150, 108, 84], noble: [126, 124, 132], poor: [128, 96, 72], ind: [120, 110, 100], ground: [214, 198, 160] },
+    { base: [178, 96, 72], noble: [110, 116, 130], poor: [140, 100, 80], ind: [120, 105, 95], ground: [218, 204, 166] },
+    { base: [138, 80, 64], noble: [112, 112, 122], poor: [120, 84, 66], ind: [92, 90, 94], ground: [196, 186, 160] },
+    { base: [170, 168, 170], noble: [132, 156, 178], poor: [150, 146, 142], ind: [112, 112, 118], ground: [200, 198, 190] }
+  ], rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  function planKey(c, era) {
+    return `${Math.round(Math.log2(Math.max(100, c.pop)) * 2)}|${era}|${Object.keys(c.buildings).sort().join(",")}|${c.wallR}`;
+  }
+  function buildCityPlan(c, world2, era) {
+    let T = world2.T, W = T.W, rng = new RNG(c.seed), cx = c.x + 0.5, cy = c.y + 0.5, R = cityRadius(c.pop), pal = ROOFS[era], water = (x, y) => {
+      let ix = Math.floor(x), iy = Math.floor(y);
+      if (ix < 0 || iy < 0 || ix >= W || iy >= T.H) return !0;
+      let b = T.biome[iy * W + ix];
+      return isWaterBiome(b);
+    }, riverAt = (x, y) => {
+      let ix = Math.floor(x), iy = Math.floor(y), i = iy * W + ix;
+      if (!T.river[i]) return !1;
+      let dx = x - (ix + 0.5), dy = y - (iy + 0.5);
+      return dx * dx + dy * dy < 0.12;
+    }, angles = [], adj = world2.adj.get(c.id);
+    if (adj) for (let o of adj) {
+      let oc = world2.cities[o];
+      angles.push(Math.atan2(oc.y - c.y, oc.x - c.x));
+    }
+    let nAv = Math.min(8, 4 + Math.floor(R / 2));
+    for (; angles.length < nAv; ) angles.push(rng.range(0, Math.PI * 2));
+    angles.sort((a, b) => a - b);
+    let av = [];
+    for (let a of angles) (!av.length || a - av[av.length - 1] > 0.45) && av.push(a);
+    av.length > 1 && av[0] + Math.PI * 2 - av[av.length - 1] < 0.45 && av.pop();
+    let ringW = 0.55 + era * 0.05, nRings = Math.max(2, Math.round(R / ringW)), radii = [];
+    for (let k = 0; k <= nRings; k++) radii.push(R * Math.pow(k / nRings, 0.92) + 0);
+    let plazaR = radii[1] * 0.75, wallR = c.buildings.muraille ? Math.min(R, Math.max(radii[1] * 1.5, R * (c._wallFrac ??= rng.range(0.55, 0.8)))) : 0, bs = 0.075 + era * 0.012, roofs = { base: new Path2D(), noble: new Path2D(), poor: new Path2D(), ind: new Path2D(), special: new Path2D() }, parks = new Path2D(), ground = new Path2D(), fields = [new Path2D(), new Path2D()], piers = new Path2D(), chimneys = new Path2D(), wards = [], nb = 0;
+    ground.moveTo(cx + radii[1], cy), ground.arc(cx, cy, radii[1], 0, Math.PI * 2);
+    let avs = av.length ? av : [0], hasPort = !!c.buildings.port, hasUni = !!c.buildings.universite, hasInd = !!(c.buildings.usine || c.buildings.manufacture), nameFor = (type, a) => {
+      let base = WARD_TYPES[type].name;
+      return type === "faubourg" ? `Faubourg ${["Nord", "Est", "Sud", "Ouest"][Math.round((a + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 2)) % 4]}` : base;
+    };
+    for (let k = 1; k < nRings; k++) {
+      let r0 = radii[k], r1 = radii[k + 1], f = k / nRings;
+      for (let s = 0; s < avs.length; s++) {
+        let a0 = avs[s], span = (s + 1 < avs.length ? avs[s + 1] : avs[0] + Math.PI * 2) - a0, rm = (r0 + r1) / 2, pieces = Math.max(1, Math.round(span * rm / 1.4));
+        for (let p = 0; p < pieces; p++) {
+          let w0 = a0 + span * p / pieces, w1 = a0 + span * (p + 1) / pieces, am = (w0 + w1) / 2, mx = cx + Math.cos(am) * rm, my = cy + Math.sin(am) * rm;
+          if (water(mx, my)) continue;
+          sector(ground, cx, cy, r0 - 0.01, r1 + 0.03, w0 - 0.02 / rm, w1 + 0.02 / rm);
+          let type, nearWater = water(cx + Math.cos(am) * (r1 + 0.5), cy + Math.sin(am) * (r1 + 0.5)), outside = wallR && r0 > wallR;
+          nearWater && hasPort && rng.chance(0.7) ? type = "port" : outside ? type = era >= 4 && hasInd && rng.chance(0.35) ? "industriel" : "faubourg" : f < 0.3 ? type = rng.pick(["noble", "temple", "marchand", "noble"]) : f < 0.6 ? type = rng.pick(["marchand", "artisan", "artisan", "populaire", hasUni ? "universite" : "artisan"]) : type = era >= 4 && hasInd && rng.chance(0.3) ? "industriel" : rng.pick(["populaire", "populaire", "artisan"]), rng.chance(0.05) && type !== "port" && (type = "parc");
+          let ward = { type, a0: w0, a1: w1, r0, r1, name: nameFor(type, am), x: mx, y: my };
+          if (wards.push(ward), type === "parc") {
+            sector(parks, cx, cy, r0 + 0.06, r1 - 0.06, w0 + 0.06 / rm, w1 - 0.06 / rm);
+            continue;
+          }
+          let roof = type === "noble" || type === "temple" || type === "universite" ? roofs.noble : type === "populaire" || type === "faubourg" ? roofs.poor : type === "industriel" ? roofs.ind : roofs.base, fill = WARD_TYPES[type].fill * (era >= 5 ? 0.85 : 1), big = type === "industriel" ? 2.2 : type === "noble" ? 1.6 : era >= 5 ? 1.5 : 1, step = bs * big * 1.25, streetR = 0.07, streetA = 0.11;
+          for (let r = r0 + streetR + step / 2; r < r1 - streetR; r += step) {
+            let da = step / r;
+            for (let a = w0 + streetA / r + da / 2; a < w1 - streetA / r; a += da) {
+              if (rng.next() > fill) continue;
+              let x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+              if (water(x, y) || c.river && riverAt(x, y)) continue;
+              let w = step * rng.range(0.6, 0.9), h = step * rng.range(0.55, 0.85);
+              rect(roof, x, y, w, h, a), nb++, type === "industriel" && rng.chance(0.15) && (chimneys.moveTo(x + bs * 0.35, y), chimneys.arc(x, y, bs * 0.35, 0, Math.PI * 2));
+            }
+          }
+          if (type === "port")
+            for (let q = 0; q < 3; q++) {
+              let a = w0 + (w1 - w0) * (q + 0.5) / 3, x0 = cx + Math.cos(a) * r1, y0 = cy + Math.sin(a) * r1;
+              water(x0 + Math.cos(a) * 0.4, y0 + Math.sin(a) * 0.4) && rect(piers, x0 + Math.cos(a) * 0.35, y0 + Math.sin(a) * 0.35, 0.08, 0.7, a + Math.PI / 2);
+            }
+        }
+      }
+    }
+    let special = roofs.special;
+    if (rect(special, cx, cy, plazaR * 0.55, plazaR * 0.55, avs[0]), c.buildings.temple) {
+      let a = avs[0] + 0.9, r = plazaR * 0.75;
+      rect(special, cx + Math.cos(a) * r, cy + Math.sin(a) * r, plazaR * 0.4, plazaR * 0.28, a);
+    }
+    if (era < 5) {
+      let fr0 = R * 1.06, fr1 = R * 1.06 + 0.9 + R * 0.35, nA = Math.round(fr1 * 5);
+      for (let s = 0; s < nA; s++) {
+        let a0 = s / nA * Math.PI * 2, a1 = (s + 1) / nA * Math.PI * 2;
+        for (let r = fr0; r < fr1; r += 0.35) {
+          let am = (a0 + a1) / 2, rm = r + 0.17, x = cx + Math.cos(am) * rm, y = cy + Math.sin(am) * rm;
+          if (water(x, y) || rng.chance(0.25)) continue;
+          let ix = Math.floor(x), iy = Math.floor(y), bb = T.biome[iy * W + ix];
+          bb === B.MOUNTAIN || bb === B.SNOW || bb === B.FOREST || bb === B.JUNGLE || sector(fields[(s + Math.round(r * 3)) % 2], cx, cy, r + 0.02, r + 0.33, a0 + 0.02 / r, a1 - 0.02 / r);
+        }
+      }
+    }
+    let wall = null, towers = null;
+    if (wallR) {
+      wall = new Path2D(), towers = new Path2D();
+      let segs = Math.max(10, Math.round(wallR * 5)), pts = [];
+      for (let s = 0; s < segs; s++) {
+        let a = s / segs * Math.PI * 2, r = wallR * (1 + rng.range(-0.04, 0.04)), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        pts.push([x, y, a, water(x, y)]);
+      }
+      for (let s = 0; s < segs; s++) {
+        let p = pts[s], q = pts[(s + 1) % segs];
+        if (p[3] && q[3]) continue;
+        let am = (p[2] + (s + 1 === segs ? p[2] + Math.PI * 2 / segs : q[2])) / 2;
+        avs.some((a) => Math.abs((am - a + Math.PI * 3) % (Math.PI * 2) - Math.PI) < 0.08) || (wall.moveTo(p[0], p[1]), wall.lineTo(q[0], q[1])), p[3] || rect(towers, p[0], p[1], 0.13 + era * 0.01, 0.13 + era * 0.01, p[2]);
+      }
+    }
+    return { key: planKey(c, era), R, cx, cy, roofs, parks, ground, fields, piers, chimneys, wall, towers, plazaR, wards, avenues: avs, pal, era, buildings: nb };
+  }
+  function rect(path, x, y, w, h, a) {
+    let c = Math.cos(a), s = Math.sin(a), hw = w / 2, hh = h / 2, tx = -s, ty = c, rx = c, ry = s;
+    path.moveTo(x + tx * hw + rx * hh, y + ty * hw + ry * hh), path.lineTo(x - tx * hw + rx * hh, y - ty * hw + ry * hh), path.lineTo(x - tx * hw - rx * hh, y - ty * hw - ry * hh), path.lineTo(x + tx * hw - rx * hh, y + ty * hw - ry * hh), path.closePath();
+  }
+  function sector(path, cx, cy, r0, r1, a0, a1) {
+    a1 <= a0 || r1 <= r0 || (path.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0), path.arc(cx, cy, r1, a0, a1), path.arc(cx, cy, r0, a1, a0, !0), path.closePath());
+  }
+  function drawCityPlan(ctx, plan, scale, alpha) {
+    let p = plan.pal, lw = 1 / scale;
+    ctx.save(), ctx.globalAlpha = alpha, ctx.fillStyle = "rgba(176,150,90,0.35)", ctx.fill(plan.fields[0]), ctx.fillStyle = "rgba(150,150,80,0.32)", ctx.fill(plan.fields[1]), ctx.strokeStyle = "rgba(90,70,40,0.25)", ctx.lineWidth = lw * 0.6, ctx.stroke(plan.fields[0]), ctx.stroke(plan.fields[1]), ctx.fillStyle = rgb(p.ground, 0.85), ctx.fill(plan.ground), ctx.strokeStyle = rgb([p.ground[0] * 0.92, p.ground[1] * 0.9, p.ground[2] * 0.85]), ctx.lineWidth = 0.14, ctx.beginPath();
+    for (let a of plan.avenues)
+      ctx.moveTo(plan.cx, plan.cy), ctx.lineTo(plan.cx + Math.cos(a) * plan.R * 1.05, plan.cy + Math.sin(a) * plan.R * 1.05);
+    ctx.stroke(), ctx.fillStyle = "rgba(110,150,80,0.75)", ctx.fill(plan.parks), ctx.fillStyle = "rgba(120,90,60,0.9)", ctx.fill(plan.piers), ctx.strokeStyle = "rgba(50,35,25,0.65)", ctx.lineWidth = Math.min(0.012, lw * 0.8);
+    for (let k of ["poor", "base", "ind", "noble"])
+      ctx.fillStyle = rgb(p[k]), ctx.fill(plan.roofs[k]), scale > 60 && ctx.stroke(plan.roofs[k]);
+    ctx.fillStyle = "rgb(232,222,196)", ctx.fill(plan.roofs.special), ctx.lineWidth = Math.max(lw * 1.2, 0.02), ctx.strokeStyle = "rgba(40,30,20,0.9)", ctx.stroke(plan.roofs.special), ctx.fillStyle = "rgba(60,55,55,0.9)", ctx.fill(plan.chimneys), plan.wall && (ctx.strokeStyle = "rgba(70,60,50,0.95)", ctx.lineWidth = 0.09 + plan.era * 0.01, ctx.lineCap = "round", ctx.stroke(plan.wall), ctx.strokeStyle = "rgba(200,190,170,0.9)", ctx.lineWidth = 0.035, ctx.stroke(plan.wall), ctx.fillStyle = "rgba(90,80,70,1)", ctx.fill(plan.towers)), ctx.restore();
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/render.js
+  var RES = 8;
+  function buildBaseLayer(T, seed) {
+    let { W, H } = T, N = W * H, cw = W * RES, ch = H * RES, cv = document.createElement("canvas");
+    cv.width = cw, cv.height = ch;
+    let ctx = cv.getContext("2d"), img = ctx.createImageData(cw, ch), d = img.data, nz = makeNoise(seed + 99), landC = new Float32Array(N * 3), waterC = new Float32Array(N * 3), shade = new Float32Array(N), wv = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let i = y * W + x, b = T.biome[i], water = isWaterBiome(b);
+      wv[i] = water ? b === B.LAKE ? -0.06 : T.h[i] : Math.max(4e-3, T.h[i]);
+      let v = 1 + nz.fbm(x * 0.08, y * 0.08, 3) * 0.06, lc = water ? BIOME_COLOR[B.BEACH] : BIOME_COLOR[b];
+      if (!water && b !== B.SNOW && b !== B.MOUNTAIN) {
+        let m = T.moist[i] - 0.5;
+        lc = [lc[0] - m * 18, lc[1] + m * 4, lc[2] - m * 10];
+      }
+      let wc;
+      if (b === B.LAKE) wc = BIOME_COLOR[B.LAKE];
+      else if (water) {
+        let t = Math.min(1, -T.h[i] * 1.6);
+        wc = BIOME_COLOR[B.SEA].map((c, k) => c + (BIOME_COLOR[B.DEEP][k] - c) * t);
+      } else wc = BIOME_COLOR[B.SEA];
+      for (let k = 0; k < 3; k++)
+        landC[i * 3 + k] = lc[k] * v, waterC[i * 3 + k] = wc[k] * (1 + (v - 1) * 0.5);
+      let xl = Math.max(0, x - 1), xr = Math.min(W - 1, x + 1), yu = Math.max(0, y - 1), yd = Math.min(H - 1, y + 1), gx = T.shadeH[y * W + xr] - T.shadeH[y * W + xl], gy = T.shadeH[yd * W + x] - T.shadeH[yu * W + x];
+      shade[i] = water ? 1 : Math.max(0.55, Math.min(1.35, 1 - (gx + gy) * 2.6));
+    }
+    let landMask = new Uint8Array(cw * ch), hv = new Float32Array(cw * ch);
+    for (let py = 0; py < ch; py++) {
+      let fy = (py + 0.5) / RES - 0.5;
+      fy < 0 && (fy = 0), fy > H - 1.001 && (fy = H - 1.001);
+      let y0 = Math.floor(fy), ty = fy - y0;
+      for (let px = 0; px < cw; px++) {
+        let fx = (px + 0.5) / RES - 0.5;
+        fx < 0 && (fx = 0), fx > W - 1.001 && (fx = W - 1.001);
+        let x0 = Math.floor(fx), tx = fx - x0, i00 = y0 * W + x0, i10 = i00 + 1, i01 = i00 + W, i11 = i01 + 1, w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty, val = wv[i00] * w00 + wv[i10] * w10 + wv[i01] * w01 + wv[i11] * w11, o = (py * cw + px) * 4, C = val < 0 ? waterC : landC, r = C[i00 * 3] * w00 + C[i10 * 3] * w10 + C[i01 * 3] * w01 + C[i11 * 3] * w11, g = C[i00 * 3 + 1] * w00 + C[i10 * 3 + 1] * w10 + C[i01 * 3 + 1] * w01 + C[i11 * 3 + 1] * w11, bb = C[i00 * 3 + 2] * w00 + C[i10 * 3 + 2] * w10 + C[i01 * 3 + 2] * w01 + C[i11 * 3 + 2] * w11;
+        if (val >= 0) {
+          let s = shade[i00] * w00 + shade[i10] * w10 + shade[i01] * w01 + shade[i11] * w11;
+          r *= s, g *= s, bb *= s * 0.97, landMask[py * cw + px] = 1;
+        }
+        let gr = ((px * 73856093 ^ py * 19349663) >>> 0) % 13 - 6;
+        d[o] = r + gr, d[o + 1] = g + gr, d[o + 2] = bb + gr * 0.8, d[o + 3] = 255, hv[py * cw + px] = val;
+      }
+    }
+    let levels = [-0.035, -0.09, -0.17];
+    for (let py = 1; py < ch - 1; py++) for (let px = 1; px < cw - 1; px++) {
+      let p = py * cw + px, o = p * 4;
+      if (landMask[p])
+        (!landMask[p - 1] || !landMask[p + 1] || !landMask[p - cw] || !landMask[p + cw]) && (d[o] = 74, d[o + 1] = 60, d[o + 2] = 44);
+      else {
+        let v = hv[p];
+        for (let k = 0; k < levels.length; k++) {
+          let L = levels[k];
+          if (v < L && (hv[p - 1] >= L || hv[p + 1] >= L || hv[p - cw] >= L || hv[p + cw] >= L)) {
+            let a = 0.35 - k * 0.09;
+            d[o] = d[o] + (60 - d[o]) * a, d[o + 1] = d[o + 1] + (90 - d[o + 1]) * a, d[o + 2] = d[o + 2] + (100 - d[o + 2]) * a;
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0), ctx.save(), ctx.scale(RES, RES), drawRivers(ctx, T), drawSymbols(ctx, T, seed), ctx.restore();
+    let grd = ctx.createRadialGradient(cw / 2, ch / 2, ch * 0.35, cw / 2, ch / 2, cw * 0.7);
+    return grd.addColorStop(0, "rgba(0,0,0,0)"), grd.addColorStop(1, "rgba(70,45,20,0.35)"), ctx.fillStyle = grd, ctx.fillRect(0, 0, cw, ch), cv;
+  }
+  function riverPaths(T) {
+    let { W } = T, groups = /* @__PURE__ */ new Map(), pt = (i) => [i % W + 0.5 + jit(i, 1) * 0.55, (i / W | 0) + 0.5 + jit(i, 2) * 0.55];
+    for (let i = 0; i < W * T.H; i++) {
+      if (!T.river[i]) continue;
+      let n = T.ds[i];
+      if (n < 0) continue;
+      let a = pt(i), b = pt(n), w = Math.round((0.1 + Math.sqrt(T.acc[i]) * 0.011) * 20) / 20;
+      groups.has(w) || groups.set(w, new Path2D());
+      let p = groups.get(w);
+      p.moveTo(a[0], a[1]), p.lineTo(b[0], b[1]);
+    }
+    return [...groups.entries()];
+  }
+  function drawRivers(ctx, T) {
+    let { W } = T, pt = (i) => [i % W + 0.5 + jit(i, 1) * 0.55, (i / W | 0) + 0.5 + jit(i, 2) * 0.55], up = new Uint8Array(W * T.H);
+    for (let i = 0; i < W * T.H; i++) T.river[i] && T.ds[i] >= 0 && up[T.ds[i]]++;
+    let done = new Uint8Array(W * T.H);
+    ctx.strokeStyle = "rgb(78,118,142)", ctx.lineCap = "round", ctx.lineJoin = "round";
+    for (let s = 0; s < W * T.H; s++) {
+      if (!T.river[s] || up[s]) continue;
+      let chain = [s], c = s;
+      for (; ; ) {
+        let n = T.ds[c];
+        if (n < 0 || (chain.push(n), !T.river[n] && T.h[n] <= 0) || T.lake[n] || done[n]) break;
+        done[n] = 1, c = n;
+      }
+      for (let k = 1; k < chain.length - 1; k++) {
+        let a = pt(chain[k - 1]), b = pt(chain[k]), e = pt(chain[k + 1]), m0 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], m1 = [(b[0] + e[0]) / 2, (b[1] + e[1]) / 2];
+        ctx.lineWidth = 0.1 + Math.sqrt(T.acc[chain[k]]) * 0.011, ctx.beginPath(), ctx.moveTo(m0[0], m0[1]), ctx.quadraticCurveTo(b[0], b[1], m1[0], m1[1]), ctx.stroke();
+      }
+      if (chain.length >= 2) {
+        let a = pt(chain[0]), b = pt(chain[1]);
+        ctx.lineWidth = 0.1, ctx.beginPath(), ctx.moveTo(a[0], a[1]), ctx.lineTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), ctx.stroke();
+      }
+    }
+  }
+  function drawSymbols(ctx, T, seed) {
+    let { W, H } = T, items = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      let i = y * W + x, b = T.biome[i], r = jit(i, seed) + 0.5, px = x + 0.5 + jit(i, 7) * 0.8, py = y + 0.5 + jit(i, 8) * 0.8;
+      (b === B.MOUNTAIN || b === B.SNOW) && r < 0.42 ? items.push([py, "m", px, py, T.h[i], b === B.SNOW]) : b === B.HILLS && r < 0.22 ? items.push([py, "h", px, py]) : (b === B.FOREST || b === B.JUNGLE) && r < (b === B.JUNGLE ? 0.75 : 0.55) ? items.push([py, "t", px, py, b === B.JUNGLE]) : b === B.TAIGA && r < 0.5 ? items.push([py, "p", px, py]) : b === B.SWAMP && r < 0.35 ? items.push([py, "s", px, py]) : b === B.DESERT && r < 0.25 && items.push([py, "d", px, py]);
+    }
+    items.sort((a, b) => a[0] - b[0]), ctx.lineJoin = "round";
+    for (let it of items) {
+      let [, k, x, y] = it;
+      if (k === "m") {
+        let s = 0.75 + it[4] * 0.9, w = 1.05 * s, h = 1.05 * s;
+        ctx.beginPath(), ctx.moveTo(x - w, y + 0.2), ctx.lineTo(x, y - h), ctx.lineTo(x + w, y + 0.2), ctx.closePath(), ctx.fillStyle = "rgb(214,198,164)", ctx.fill(), ctx.beginPath(), ctx.moveTo(x, y - h), ctx.lineTo(x + w, y + 0.2), ctx.lineTo(x + w * 0.1, y + 0.2), ctx.lineTo(x + w * 0.15, y - h * 0.4), ctx.closePath(), ctx.fillStyle = "rgb(150,128,100)", ctx.fill(), (it[5] || it[4] > 0.85) && (ctx.beginPath(), ctx.moveTo(x - w * 0.35, y - h * 0.62), ctx.lineTo(x, y - h), ctx.lineTo(x + w * 0.35, y - h * 0.62), ctx.lineTo(x + w * 0.1, y - h * 0.7), ctx.lineTo(x - w * 0.1, y - h * 0.58), ctx.closePath(), ctx.fillStyle = "rgb(250,248,240)", ctx.fill()), ctx.beginPath(), ctx.moveTo(x - w, y + 0.2), ctx.lineTo(x, y - h), ctx.lineTo(x + w, y + 0.2), ctx.strokeStyle = "rgba(70,52,36,0.9)", ctx.lineWidth = 0.09, ctx.stroke();
+      } else if (k === "h")
+        ctx.beginPath(), ctx.arc(x, y + 0.3, 0.55, Math.PI * 1.1, Math.PI * 1.9), ctx.strokeStyle = "rgba(90,70,48,0.75)", ctx.lineWidth = 0.08, ctx.stroke();
+      else if (k === "t")
+        ctx.beginPath(), ctx.moveTo(x, y + 0.1), ctx.lineTo(x, y + 0.42), ctx.strokeStyle = "rgba(70,52,36,0.8)", ctx.lineWidth = 0.07, ctx.stroke(), ctx.beginPath(), ctx.arc(x, y - 0.08, it[4] ? 0.36 : 0.3, 0, Math.PI * 2), ctx.fillStyle = it[4] ? "rgb(86,128,74)" : "rgb(112,140,84)", ctx.fill(), ctx.strokeStyle = "rgba(50,60,36,0.85)", ctx.lineWidth = 0.06, ctx.stroke();
+      else if (k === "p")
+        ctx.beginPath(), ctx.moveTo(x - 0.28, y + 0.3), ctx.lineTo(x, y - 0.5), ctx.lineTo(x + 0.28, y + 0.3), ctx.closePath(), ctx.fillStyle = "rgb(92,118,88)", ctx.fill(), ctx.strokeStyle = "rgba(50,60,36,0.85)", ctx.lineWidth = 0.06, ctx.stroke();
+      else if (k === "s") {
+        ctx.beginPath();
+        for (let q = -1; q <= 1; q++)
+          ctx.moveTo(x + q * 0.18, y + 0.2), ctx.lineTo(x + q * 0.25, y - 0.15);
+        ctx.moveTo(x - 0.4, y + 0.22), ctx.lineTo(x + 0.4, y + 0.22), ctx.strokeStyle = "rgba(60,80,60,0.8)", ctx.lineWidth = 0.06, ctx.stroke();
+      } else k === "d" && (ctx.beginPath(), ctx.arc(x, y, 0.5, Math.PI * 1.15, Math.PI * 1.85), ctx.strokeStyle = "rgba(160,120,70,0.6)", ctx.lineWidth = 0.06, ctx.stroke());
+    }
+  }
+  var Renderer = class {
+    constructor(canvas, world2) {
+      this.cv = canvas, this.ctx = canvas.getContext("2d"), this.setWorld(world2);
+    }
+    setWorld(world2) {
+      this.world = world2, this.base = buildBaseLayer(world2.T, world2.seed), this.terrVer = -1, this.roadVer = -1, this.rivers = null, this.plans = /* @__PURE__ */ new Map(), this.cam = { x: world2.W / 2, y: world2.H / 2, scale: 4 }, this.fit();
+    }
+    fit() {
+      let w = this.cv.clientWidth, h = this.cv.clientHeight;
+      this.cam.scale = Math.min(w / this.world.W, h / this.world.H) * 1.02, this.cam.x = this.world.W / 2, this.cam.y = this.world.H / 2, this.minScale = this.cam.scale * 0.8;
+    }
+    toWorld(sx, sy) {
+      let c = this.cam, w = this.cv.clientWidth, h = this.cv.clientHeight;
+      return [(sx - w / 2) / c.scale + c.x, (sy - h / 2) / c.scale + c.y];
+    }
+    toScreen(x, y) {
+      let c = this.cam, w = this.cv.clientWidth, h = this.cv.clientHeight;
+      return [(x - c.x) * c.scale + w / 2, (y - c.y) * c.scale + h / 2];
+    }
+    zoomAt(sx, sy, f) {
+      let [wx, wy] = this.toWorld(sx, sy);
+      this.cam.scale = Math.max(this.minScale, Math.min(600, this.cam.scale * f));
+      let [nx, ny] = this.toWorld(sx, sy);
+      this.cam.x += wx - nx, this.cam.y += wy - ny;
+    }
+    rebuildTerritory() {
+      let wd = this.world, { W, H } = wd, cv = this.terrCv || (this.terrCv = document.createElement("canvas"));
+      cv.width = W, cv.height = H;
+      let c = cv.getContext("2d"), img = c.createImageData(W, H);
+      for (let i = 0; i < W * H; i++) {
+        let n = wd.cellNation[i];
+        if (n < 0) continue;
+        let col = wd.nations[n].color;
+        img.data[i * 4] = col[0], img.data[i * 4 + 1] = col[1], img.data[i * 4 + 2] = col[2], img.data[i * 4 + 3] = 255;
+      }
+      c.putImageData(img, 0, 0), this.borders = [];
+      let cn = wd.cellNation, present = new Set(cn);
+      for (let nid of present) {
+        if (nid < 0) continue;
+        let p = new Path2D(), inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cn[y * W + x] === nid;
+        for (let y = -1; y < H; y++) for (let x = -1; x < W; x++) {
+          let a = inside(x, y), b = inside(x + 1, y), cc = inside(x + 1, y + 1), d = inside(x, y + 1), code = (a ? 8 : 0) | (b ? 4 : 0) | (cc ? 2 : 0) | (d ? 1 : 0);
+          if (code === 0 || code === 15) continue;
+          let X = x + 0.5, Y = y + 0.5, T = [X + 0.5, Y], R = [X + 1, Y + 0.5], Bm = [X + 0.5, Y + 1], L = [X, Y + 0.5], seg = (u, v) => {
+            p.moveTo(u[0], u[1]), p.lineTo(v[0], v[1]);
+          };
+          switch (code) {
+            case 1:
+            case 14:
+              seg(L, Bm);
+              break;
+            case 2:
+            case 13:
+              seg(Bm, R);
+              break;
+            case 3:
+            case 12:
+              seg(L, R);
+              break;
+            case 4:
+            case 11:
+              seg(T, R);
+              break;
+            case 5:
+              seg(L, T), seg(Bm, R);
+              break;
+            case 6:
+            case 9:
+              seg(T, Bm);
+              break;
+            case 7:
+            case 8:
+              seg(L, T);
+              break;
+            case 10:
+              seg(T, R), seg(L, Bm);
+              break;
+          }
+        }
+        this.borders.push([nid, p]);
+      }
+      this.terrVer = wd.territoryVersion;
+    }
+    rebuildRoads() {
+      let wd = this.world, W = wd.W;
+      this.roadPaths = wd.roads.map((r) => {
+        let q = r.path.map((i) => [i % W + 0.5 + jit(i, 3) * 0.35, (i / W | 0) + 0.5 + jit(i, 4) * 0.35]);
+        for (let it = 0; it < 2; it++) {
+          let n = [q[0]];
+          for (let k = 0; k < q.length - 1; k++) {
+            let a = q[k], b = q[k + 1];
+            n.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+          }
+          n.push(q[q.length - 1]), q = n;
+        }
+        let p = new Path2D();
+        p.moveTo(q[0][0], q[0][1]);
+        for (let v of q) p.lineTo(v[0], v[1]);
+        return { p, road: r };
+      }), this.roadVer = wd.roadVersion;
+    }
+    draw(ui2) {
+      let wd = this.world, ctx = this.ctx, cam = this.cam, dpr = window.devicePixelRatio || 1, w = this.cv.clientWidth, h = this.cv.clientHeight;
+      (this.cv.width !== Math.round(w * dpr) || this.cv.height !== Math.round(h * dpr)) && (this.cv.width = Math.round(w * dpr), this.cv.height = Math.round(h * dpr)), this.terrVer !== wd.territoryVersion && this.rebuildTerritory(), this.roadVer !== wd.roadVersion && this.rebuildRoads(), ctx.setTransform(dpr, 0, 0, dpr, 0, 0), ctx.fillStyle = "#cdb88e", ctx.fillRect(0, 0, w, h);
+      let s = cam.scale;
+      ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * (w / 2 - cam.x * s), dpr * (h / 2 - cam.y * s)), ctx.imageSmoothingEnabled = !0, ctx.imageSmoothingQuality = "high", ctx.drawImage(this.base, 0, 0, wd.W, wd.H);
+      let cityZoom = Math.max(0, Math.min(1, (s - 22) / 18));
+      ctx.globalAlpha = 0.22 * (1 - cityZoom * 0.7), ctx.drawImage(this.terrCv, 0, 0, wd.W, wd.H), ctx.globalAlpha = 1, ctx.lineCap = "round", ctx.lineJoin = "round";
+      for (let [nid, p] of this.borders) {
+        let c = wd.nations[nid].color;
+        ctx.strokeStyle = `rgba(${c[0] * 0.55 | 0},${c[1] * 0.55 | 0},${c[2] * 0.55 | 0},${0.9 - cityZoom * 0.6})`, ctx.lineWidth = Math.max(0.12, 2.2 / s), ctx.setLineDash(nid === wd.player ? [] : [Math.max(0.3, 5 / s), Math.max(0.2, 3 / s)]), ctx.stroke(p);
+      }
+      ctx.setLineDash([]);
+      for (let { p, road } of this.roadPaths) {
+        let a = wd.cities[road.a], b = wd.cities[road.b], era = Math.max(wd.nations[a.nation].era, wd.nations[b.nation].era);
+        road.rail ? (ctx.strokeStyle = "rgba(40,36,34,0.85)", ctx.lineWidth = Math.max(0.09, 2.2 / s), ctx.stroke(p), ctx.strokeStyle = "rgba(240,232,210,0.9)", ctx.lineWidth = Math.max(0.05, 1.1 / s), ctx.setLineDash([Math.max(0.15, 4 / s), Math.max(0.15, 4 / s)]), ctx.stroke(p), ctx.setLineDash([])) : (ctx.strokeStyle = era >= 2 ? "rgba(112,78,48,0.85)" : "rgba(120,86,52,0.75)", ctx.lineWidth = Math.max(0.06, (era >= 2 ? 1.6 : 1.2) / s), era < 2 && ctx.setLineDash([Math.max(0.2, 3 / s), Math.max(0.15, 2.4 / s)]), ctx.stroke(p), ctx.setLineDash([]));
+      }
+      let [vx0, vy0] = this.toWorld(0, 0), [vx1, vy1] = this.toWorld(w, h), visible = wd.cities.filter((c) => c.alive && c.x > vx0 - 15 && c.x < vx1 + 15 && c.y > vy0 - 15 && c.y < vy1 + 15);
+      if (cityZoom > 0)
+        for (let c of visible) {
+          let era = wd.nations[c.nation].era, key = planKey(c, era), plan = this.plans.get(c.id);
+          (!plan || plan.key !== key) && (plan = buildCityPlan(c, wd, era), this.plans.set(c.id, plan)), drawCityPlan(ctx, plan, s, cityZoom);
+        }
+      if (s > 14) {
+        this.rivers = this.rivers || riverPaths(wd.T), ctx.strokeStyle = `rgba(78,118,142,${Math.min(1, (s - 14) / 10)})`, ctx.lineCap = "round";
+        for (let [w2, p] of this.rivers)
+          ctx.lineWidth = w2, ctx.stroke(p);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      let labels = [];
+      for (let c of visible) {
+        let [x, y] = this.toScreen(c.x + 0.5, c.y + 0.5), n = wd.nations[c.nation], isCap = n.capital === c.id, size = 2.5 + Math.log10(c.pop) * 1.4 + (isCap ? 1.5 : 0), a = 1 - cityZoom;
+        a > 0.02 && (ctx.globalAlpha = a, drawCityIcon(ctx, x, y, size, c, n, isCap), ctx.globalAlpha = 1), (isCap || c.pop > 2e4 || s > 7) && labels.push({ c, x, y: cityZoom > 0.5 ? y - cityRadius(c.pop) * s - 6 : y - size - 4, isCap, big: c.pop > 3e4 });
+      }
+      if (s > 70) {
+        ctx.font = 'italic 12px "IM Fell English", Georgia, serif', ctx.textAlign = "center";
+        for (let c of visible) {
+          let plan = this.plans.get(c.id);
+          if (!plan) continue;
+          let seen = /* @__PURE__ */ new Set();
+          for (let wdd of plan.wards) {
+            if (seen.has(wdd.name) && wdd.type !== "faubourg") continue;
+            seen.add(wdd.name);
+            let [x, y] = this.toScreen(wdd.x, wdd.y);
+            x < -50 || y < -20 || x > w + 50 || y > h + 20 || haloText(ctx, wdd.name, x, y, "rgba(50,35,20,0.95)", "rgba(245,235,210,0.8)");
+          }
+        }
+      }
+      ctx.textAlign = "center", labels.sort((a, b) => b.isCap - a.isCap || b.c.pop - a.c.pop);
+      let placed = [];
+      for (let L of labels) {
+        let fs = L.isCap || L.big ? 15 : 12;
+        ctx.font = `${L.isCap ? "bold " : ""}${fs}px "IM Fell English", Georgia, serif`;
+        let txt = (L.isCap ? "\u265B " : "") + L.c.name, tw = ctx.measureText(txt).width, box = [L.x - tw / 2 - 2, L.y - fs, L.x + tw / 2 + 2, L.y + 3];
+        placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1]) || (placed.push(box), haloText(ctx, txt, L.x, L.y, "rgb(40,28,18)", "rgba(244,232,204,0.85)"));
+      }
+      if (s < 9) {
+        ctx.textAlign = "center";
+        for (let n of wd.nations) {
+          if (!n.alive) continue;
+          let cs = wd.citiesOf(n);
+          if (!cs.length) continue;
+          let sx = 0, sy = 0, tw = 0;
+          for (let c of cs) {
+            let k = Math.sqrt(c.pop);
+            sx += c.x * k, sy += c.y * k, tw += k;
+          }
+          let [x, y] = this.toScreen(sx / tw, sy / tw + 3), fs = Math.min(30, 12 + Math.sqrt(cs.length) * 4);
+          ctx.font = `${fs}px "Cinzel", "IM Fell English", Georgia, serif`, ctx.globalAlpha = 0.65 * Math.max(0, Math.min(1, (9 - s) / 3)), haloText(ctx, n.name.toUpperCase().split("").join(" "), x, y, `rgb(${n.color[0] * 0.45 | 0},${n.color[1] * 0.45 | 0},${n.color[2] * 0.45 | 0})`, "rgba(240,228,200,0.5)"), ctx.globalAlpha = 1;
+        }
+      }
+      if (ui2.selCity != null) {
+        let c = wd.cities[ui2.selCity], [x, y] = this.toScreen(c.x + 0.5, c.y + 0.5), r = Math.max(12, cityRadius(c.pop) * s * (cityZoom > 0.3 ? 1.15 : 0));
+        ctx.strokeStyle = "rgba(160,30,20,0.9)", ctx.lineWidth = 2, ctx.setLineDash([6, 4]), ctx.beginPath(), ctx.arc(x, y, r, 0, Math.PI * 2), ctx.stroke(), ctx.setLineDash([]);
+      }
+      drawCompass(ctx, w - 70, h - 110);
+    }
+  };
+  function haloText(ctx, t, x, y, fg, bg) {
+    ctx.lineWidth = 3.5, ctx.strokeStyle = bg, ctx.lineJoin = "round", ctx.strokeText(t, x, y), ctx.fillStyle = fg, ctx.fillText(t, x, y);
+  }
+  function drawCityIcon(ctx, x, y, size, c, n, isCap) {
+    let col = n.color;
+    if (ctx.lineWidth = 1.2, ctx.strokeStyle = "rgb(40,28,18)", c.pop < 1500) {
+      ctx.beginPath(), ctx.arc(x, y, size * 0.45, 0, Math.PI * 2), ctx.fillStyle = rgb(col), ctx.fill(), ctx.stroke();
+      return;
+    }
+    c.buildings.muraille && (ctx.beginPath(), ctx.arc(x, y, size * 0.95, 0, Math.PI * 2), ctx.fillStyle = "rgba(235,225,200,0.9)", ctx.fill(), ctx.lineWidth = 1.6, ctx.stroke(), ctx.lineWidth = 1.2);
+    let hs = size * 0.42, houses = c.pop > 2e4 ? [[-0.55, 0.2], [0.55, 0.2], [0, -0.35], [0, 0.45]] : [[-0.35, 0.1], [0.35, 0.1], [0, -0.3]];
+    for (let [dx, dy] of houses) {
+      let hx = x + dx * size * 0.7, hy = y + dy * size * 0.7;
+      ctx.beginPath(), ctx.rect(hx - hs / 2, hy - hs / 2, hs, hs * 0.8), ctx.fillStyle = "rgb(236,226,204)", ctx.fill(), ctx.stroke(), ctx.beginPath(), ctx.moveTo(hx - hs * 0.65, hy - hs / 2), ctx.lineTo(hx, hy - hs * 1.15), ctx.lineTo(hx + hs * 0.65, hy - hs / 2), ctx.closePath(), ctx.fillStyle = rgb(col), ctx.fill(), ctx.stroke();
+    }
+    if (isCap) {
+      ctx.beginPath();
+      let cy = y - size * 1.25;
+      ctx.moveTo(x - 5, cy + 3), ctx.lineTo(x - 5, cy - 2), ctx.lineTo(x - 2.5, cy + 0.5), ctx.lineTo(x, cy - 3.5), ctx.lineTo(x + 2.5, cy + 0.5), ctx.lineTo(x + 5, cy - 2), ctx.lineTo(x + 5, cy + 3), ctx.closePath(), ctx.fillStyle = "rgb(222,178,60)", ctx.fill(), ctx.lineWidth = 1, ctx.stroke();
+    }
+  }
+  function drawCompass(ctx, x, y) {
+    ctx.save(), ctx.translate(x, y), ctx.globalAlpha = 0.75, ctx.strokeStyle = "rgb(70,50,30)", ctx.fillStyle = "rgb(70,50,30)", ctx.lineWidth = 1, ctx.beginPath(), ctx.arc(0, 0, 26, 0, Math.PI * 2), ctx.stroke();
+    for (let k = 0; k < 4; k++)
+      ctx.rotate(Math.PI / 2), ctx.beginPath(), ctx.moveTo(0, -34), ctx.lineTo(5, 0), ctx.lineTo(-5, 0), ctx.closePath(), ctx.fillStyle = k % 2 ? "rgb(70,50,30)" : "rgb(230,215,180)", ctx.fill(), ctx.stroke();
+    ctx.rotate(Math.PI * 2), ctx.font = 'bold 12px "Cinzel", Georgia, serif', ctx.textAlign = "center", ctx.fillStyle = "rgb(60,40,24)", ctx.fillText("N", 0, -38), ctx.restore();
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/portrait.js
+  var SKINS = [[247, 214, 186], [236, 196, 160], [222, 176, 136], [198, 146, 104], [164, 112, 76], [120, 82, 56], [92, 62, 44]], HAIRS = [[30, 22, 18], [58, 38, 24], [96, 64, 36], [140, 96, 52], [186, 140, 80], [216, 184, 120], [120, 50, 28]], EYES = [[70, 50, 30], [90, 120, 150], [80, 110, 70], [50, 40, 30], [110, 90, 60]];
+  function features(L, culture) {
+    let r = new RNG(L.seed), cr = new RNG(culture?.id || 1), skinBase = cr.int(0, SKINS.length - 1);
+    return {
+      skin: SKINS[Math.max(0, Math.min(SKINS.length - 1, skinBase + r.int(-1, 1)))],
+      hair: HAIRS[Math.min(HAIRS.length - 1, Math.max(0, cr.int(0, 3) + r.int(-1, 3)))],
+      eye: r.pick(EYES),
+      faceW: r.range(0.88, 1.1),
+      jaw: r.range(0.82, 1.15),
+      eyeS: r.range(0.85, 1.15),
+      eyeY: r.range(-1.5, 1.5),
+      eyeGap: r.range(-1, 1.5),
+      noseL: r.range(0.8, 1.3),
+      noseW: r.range(0.8, 1.3),
+      mouthW: r.range(0.8, 1.2),
+      lips: r.range(0.6, 1.3),
+      brow: r.range(0.7, 1.4),
+      hairStyle: r.int(0, 4),
+      beard: L.female ? -1 : r.int(-1, 4),
+      ear: r.range(0.85, 1.15),
+      cheek: r.chance(0.5),
+      mole: r.chance(0.15) ? [r.range(-10, 10), r.range(-5, 10)] : null,
+      phase: r.range(0, 100),
+      scar: !L.female && r.chance(0.12)
+    };
+  }
+  var mix = (a, b, t) => a.map((v, k) => Math.round(v + (b[k] - v) * t)), css = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`, shadeC = (c, f) => c.map((v) => Math.max(0, Math.min(255, Math.round(v * f))));
+  function drawPortrait(ctx, L, F, opt, t, w, h) {
+    let { nationColor = [150, 60, 50], era = 0, regime = "Royaume", mood = 0, sepia = !1 } = opt;
+    ctx.save(), ctx.scale(w / 100, h / 125);
+    let bg = ctx.createRadialGradient(50, 50, 10, 50, 60, 80);
+    bg.addColorStop(0, css(shadeC(nationColor, 0.9))), bg.addColorStop(1, css(shadeC(nationColor, 0.35))), ctx.fillStyle = bg, ctx.fillRect(0, 0, 100, 125);
+    let tt = t + F.phase, breath = Math.sin(tt * 1.5) * 0.9, sway = Math.sin(tt * 0.45) * 0.8 + Math.sin(tt * 0.23) * 0.5, tilt = Math.sin(tt * 0.31) * 0.025, age = L.age, gray = Math.max(0, Math.min(1, (age - 42) / 30)), hairC = mix(F.hair, [205, 205, 200], gray), skin = F.skin;
+    ctx.save(), ctx.translate(0, breath * 0.6), drawClothes(ctx, era, regime, nationColor, L, F), ctx.restore(), ctx.save();
+    let hx = 50 + sway, hy = 52 + breath * 0.35;
+    ctx.translate(hx, hy), ctx.rotate(tilt);
+    let fw = 19 * F.faceW, fh = 25;
+    ctx.fillStyle = css(shadeC(skin, 0.86)), ctx.fillRect(-7.5 * F.jaw, 14, 15 * F.jaw, 22), (L.female || F.hairStyle === 4) && (ctx.fillStyle = css(hairC), ctx.beginPath(), ctx.ellipse(0, 4, fw + 5, fh + (L.female ? 12 : 4), 0, 0, Math.PI * 2), ctx.fill()), ctx.fillStyle = css(shadeC(skin, 0.93));
+    for (let sx of [-1, 1])
+      ctx.beginPath(), ctx.ellipse(sx * (fw + 0.5), 2, 3.4 * F.ear, 5.5 * F.ear, 0, 0, Math.PI * 2), ctx.fill();
+    ctx.beginPath(), ctx.moveTo(-fw, -6), ctx.bezierCurveTo(-fw, -fh - 4, fw, -fh - 4, fw, -6), ctx.bezierCurveTo(fw, 10, 9 * F.jaw, fh, 0, fh + 1), ctx.bezierCurveTo(-9 * F.jaw, fh, -fw, 10, -fw, -6);
+    let fg = ctx.createLinearGradient(-fw, 0, fw, 0);
+    if (fg.addColorStop(0, css(shadeC(skin, 0.88))), fg.addColorStop(0.45, css(skin)), fg.addColorStop(1, css(shadeC(skin, 0.82))), ctx.fillStyle = fg, ctx.fill(), ctx.strokeStyle = css(shadeC(skin, 0.6), 0.6), ctx.lineWidth = 0.6, ctx.stroke(), F.cheek) {
+      ctx.fillStyle = "rgba(220,110,100,0.13)";
+      for (let sx of [-1, 1])
+        ctx.beginPath(), ctx.arc(sx * 10, 8, 5, 0, Math.PI * 2), ctx.fill();
+    }
+    let blinkP = tt * 0.8 % 4.2, blink = blinkP < 0.12 ? 1 - Math.abs(blinkP - 0.06) / 0.06 : 0, gk = Math.floor(tt / 2.6), gx = Math.sin(gk * 12.9898) * 1.1, gy = Math.cos(gk * 7.233) * 0.5, ey = -2 + F.eyeY, ex = 7.5 + F.eyeGap;
+    for (let sx of [-1, 1]) {
+      ctx.save(), ctx.translate(sx * ex, ey);
+      let es = F.eyeS;
+      ctx.beginPath(), ctx.ellipse(0, 0, 4.4 * es, 2.5 * es * (1 - blink * 0.95), 0, 0, Math.PI * 2), ctx.fillStyle = "rgb(246,242,236)", ctx.fill(), ctx.save(), ctx.clip(), ctx.fillStyle = css(F.eye), ctx.beginPath(), ctx.arc(gx, gy, 1.9 * es, 0, Math.PI * 2), ctx.fill(), ctx.fillStyle = "rgb(20,15,12)", ctx.beginPath(), ctx.arc(gx, gy, 0.9 * es, 0, Math.PI * 2), ctx.fill(), ctx.fillStyle = "rgba(255,255,255,0.8)", ctx.beginPath(), ctx.arc(gx + 0.6, gy - 0.6, 0.45, 0, Math.PI * 2), ctx.fill(), ctx.restore(), ctx.strokeStyle = "rgba(40,25,20,0.85)", ctx.lineWidth = 0.9, ctx.beginPath(), ctx.ellipse(0, 0, 4.4 * es, 2.5 * es * (1 - blink * 0.95), 0, Math.PI, Math.PI * 2), ctx.stroke(), age > 45 && (ctx.strokeStyle = "rgba(90,60,45,0.4)", ctx.lineWidth = 0.4, ctx.beginPath(), ctx.arc(0, 1.5, 4, 0.2, Math.PI - 0.2), ctx.stroke(), ctx.beginPath(), ctx.moveTo(sx * 5, -0.5), ctx.lineTo(sx * 7, -1.5), ctx.moveTo(sx * 5, 0.5), ctx.lineTo(sx * 7, 0.8), ctx.stroke()), ctx.restore();
+    }
+    ctx.strokeStyle = css(shadeC(hairC, 0.8)), ctx.lineWidth = 1.3 * F.brow, ctx.lineCap = "round";
+    for (let sx of [-1, 1]) {
+      let inner = -6.5 + F.eyeY - mood * 0.8 + (mood < -0.3 ? 1.5 : 0), outer = -6.8 + F.eyeY + mood * 0.4;
+      ctx.beginPath(), ctx.moveTo(sx * (ex - 4), inner), ctx.quadraticCurveTo(sx * ex, -8.5 + F.eyeY, sx * (ex + 4.5), outer), ctx.stroke();
+    }
+    ctx.strokeStyle = css(shadeC(skin, 0.62)), ctx.lineWidth = 0.8, ctx.beginPath(), ctx.moveTo(-0.6, 0), ctx.quadraticCurveTo(-2.2 * F.noseW, 7 * F.noseL, -2.6 * F.noseW, 8.5 * F.noseL), ctx.quadraticCurveTo(0, 10 * F.noseL, 2.6 * F.noseW, 8.5 * F.noseL), ctx.stroke();
+    let my = 15 + (F.noseL - 1) * 2, mw = 6 * F.mouthW, talk = 0;
+    if (ctx.strokeStyle = "rgba(110,50,45,0.9)", ctx.lineWidth = 1.1 * F.lips, ctx.beginPath(), ctx.moveTo(-mw, my - mood * 1.2), ctx.quadraticCurveTo(0, my + mood * 3 + talk, mw, my - mood * 1.2), ctx.stroke(), age > 50) {
+      ctx.strokeStyle = "rgba(90,60,45,0.35)", ctx.lineWidth = 0.5;
+      for (let sx of [-1, 1])
+        ctx.beginPath(), ctx.moveTo(sx * 4, 9), ctx.quadraticCurveTo(sx * 8.5, 13, sx * 8, 17), ctx.stroke();
+      ctx.beginPath(), ctx.moveTo(-6, -13), ctx.lineTo(6, -13), ctx.moveTo(-4, -15.5), ctx.lineTo(4, -15.5), ctx.stroke();
+    }
+    if (F.mole && (ctx.fillStyle = "rgba(70,40,30,0.8)", ctx.beginPath(), ctx.arc(F.mole[0], F.mole[1], 0.7, 0, Math.PI * 2), ctx.fill()), F.scar && (ctx.strokeStyle = "rgba(150,70,60,0.6)", ctx.lineWidth = 0.8, ctx.beginPath(), ctx.moveTo(9, -8), ctx.lineTo(13, 6), ctx.stroke()), F.beard >= 0 && !(era >= 5 && F.beard > 1) && (ctx.fillStyle = css(hairC, 0.95), F.beard >= 1 && (ctx.beginPath(), ctx.moveTo(-fw + 1, 2), ctx.bezierCurveTo(-fw, 18, -8, fh + 6 + F.beard * 2, 0, fh + 6 + F.beard * 2.5), ctx.bezierCurveTo(8, fh + 6 + F.beard * 2, fw, 18, fw - 1, 2), ctx.bezierCurveTo(fw - 4, 12, 6, 12, 0, 12.5), ctx.bezierCurveTo(-6, 12, -fw + 4, 12, -fw + 1, 2), ctx.fill(), ctx.strokeStyle = "rgba(110,50,45,0.9)", ctx.lineWidth = 1, ctx.beginPath(), ctx.moveTo(-mw * 0.8, my - mood), ctx.quadraticCurveTo(0, my + mood * 2.5, mw * 0.8, my - mood), ctx.stroke()), ctx.beginPath(), ctx.moveTo(0, my - 3.2), ctx.quadraticCurveTo(-5, my - 4.5, -mw - 1.5, my - 0.5), ctx.quadraticCurveTo(-4, my - 2.2, 0, my - 2), ctx.quadraticCurveTo(4, my - 2.2, mw + 1.5, my - 0.5), ctx.quadraticCurveTo(5, my - 4.5, 0, my - 3.2), ctx.fill()), drawHair(ctx, F, L, hairC, fw, fh, age, era), drawHeadwear(ctx, era, regime, L, fw, fh, nationColor), ctx.restore(), ctx.lineWidth = 3, ctx.strokeStyle = "rgb(176,138,64)", ctx.strokeRect(1.5, 1.5, 97, 122), ctx.lineWidth = 1, ctx.strokeStyle = "rgb(90,64,24)", ctx.strokeRect(4, 4, 92, 117), ctx.restore(), sepia) {
+      let id = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height), d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        let g = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11, v = g > 150 ? 235 : g > 105 ? 175 : g > 65 ? 110 : 50;
+        d[i] = v * 1, d[i + 1] = v * 0.93, d[i + 2] = v * 0.8;
+      }
+      ctx.putImageData(id, 0, 0);
+    }
+  }
+  function drawHair(ctx, F, L, c, fw, fh, age, era) {
+    ctx.fillStyle = css(c);
+    let bald = !L.female && age > 55 && F.hairStyle === 0;
+    if (ctx.beginPath(), bald) {
+      ctx.moveTo(-fw - 1, 0), ctx.quadraticCurveTo(-fw - 1, -8, -fw + 2, -12), ctx.lineTo(-fw + 4, -6), ctx.closePath(), ctx.moveTo(fw + 1, 0), ctx.quadraticCurveTo(fw + 1, -8, fw - 2, -12), ctx.lineTo(fw - 4, -6), ctx.closePath(), ctx.fill();
+      return;
+    }
+    let st = F.hairStyle;
+    if (ctx.moveTo(-fw - 1.5, 2), ctx.bezierCurveTo(-fw - 4, -fh - 6, fw + 4, -fh - 6, fw + 1.5, 2), L.female)
+      ctx.bezierCurveTo(fw - 1, -10, 6, -fh + 2, 0, -fh + 4), ctx.bezierCurveTo(-6, -fh + 2, -fw + 1, -10, -fw - 1.5, 2);
+    else if (st === 1)
+      ctx.lineTo(fw - 2, -10), ctx.lineTo(8, -14), ctx.lineTo(3, -12), ctx.lineTo(-2, -15), ctx.lineTo(-7, -12.5), ctx.lineTo(-fw + 2, -11);
+    else if (st === 2)
+      ctx.lineTo(fw - 1, -12), ctx.quadraticCurveTo(4, -17, -6, -16), ctx.quadraticCurveTo(-fw + 1, -14, -fw - 1.5, 2);
+    else if (st === 3)
+      for (let k = 0; k <= 8; k++) {
+        let a = Math.PI + k / 8 * Math.PI;
+        ctx.arc(Math.cos(a) * (fw + 1), -6 + Math.sin(a) * (fh - 2), 3.2, 0, Math.PI * 2);
+      }
+    else
+      ctx.lineTo(fw - 1.5, -11), ctx.quadraticCurveTo(0, -19, -fw + 1.5, -11);
+    ctx.closePath(), ctx.fill(), L.female && era <= 3 && (ctx.beginPath(), ctx.arc(0, -fh - 5, 7, 0, Math.PI * 2), ctx.fill());
+  }
+  function drawHeadwear(ctx, era, regime, L, fw, fh, col) {
+    let gold = "rgb(222,180,70)", goldD = "rgb(140,100,30)", hered = ["Royaume", "Empire", "Chefferie"].includes(regime);
+    if (ctx.lineWidth = 0.7, ctx.strokeStyle = goldD, regime === "Chefferie") {
+      ctx.fillStyle = "rgb(150,90,50)", ctx.fillRect(-fw, -fh + 3, fw * 2, 4);
+      for (let k = -2; k <= 2; k++)
+        ctx.save(), ctx.translate(k * 5, -fh + 3), ctx.rotate(k * 0.18), ctx.fillStyle = k % 2 ? "rgb(200,60,40)" : "rgb(240,230,210)", ctx.beginPath(), ctx.ellipse(0, -8, 2.3, 9, 0, 0, Math.PI * 2), ctx.fill(), ctx.restore();
+      return;
+    }
+    if (regime === "Th\xE9ocratie") {
+      ctx.fillStyle = "rgb(245,240,228)", ctx.beginPath(), ctx.moveTo(-fw + 2, -fh + 6), ctx.lineTo(-fw + 5, -fh - 16), ctx.lineTo(0, -fh - 24), ctx.lineTo(fw - 5, -fh - 16), ctx.lineTo(fw - 2, -fh + 6), ctx.closePath(), ctx.fill(), ctx.stroke(), ctx.strokeStyle = gold, ctx.lineWidth = 1.5, ctx.beginPath(), ctx.moveTo(0, -fh - 20), ctx.lineTo(0, -fh + 4), ctx.moveTo(-5, -fh - 8), ctx.lineTo(5, -fh - 8), ctx.stroke();
+      return;
+    }
+    if (era <= 1 && hered) {
+      ctx.fillStyle = "rgb(120,150,60)";
+      for (let k = 0; k < 9; k++) {
+        let a = Math.PI * 1.05 + k / 8 * Math.PI * 0.9, x = Math.cos(a) * (fw + 1), y = -6 + Math.sin(a) * (fh - 4);
+        ctx.beginPath(), ctx.ellipse(x, y, 1.6, 3.4, a + Math.PI / 2, 0, Math.PI * 2), ctx.fill();
+      }
+      regime === "Empire" && (ctx.fillStyle = gold, ctx.beginPath(), ctx.arc(0, -fh + 1, 2, 0, Math.PI * 2), ctx.fill());
+      return;
+    }
+    if (hered && era <= 4) {
+      let top = -fh - (regime === "Empire" ? 14 : 10), base = -fh + 3;
+      ctx.fillStyle = gold, ctx.beginPath(), ctx.moveTo(-fw + 1, base);
+      let pts = 5;
+      for (let k = 0; k <= pts * 2; k++) {
+        let x = -fw + 1 + (2 * fw - 2) * k / (pts * 2);
+        ctx.lineTo(x, k % 2 ? base - 5 : top);
+      }
+      ctx.lineTo(fw - 1, base), ctx.closePath(), ctx.fill(), ctx.stroke(), ctx.fillStyle = "rgb(180,30,40)";
+      for (let k = -1; k <= 1; k++)
+        ctx.beginPath(), ctx.arc(k * 7, base - 2.5, 1.4, 0, Math.PI * 2), ctx.fill();
+      regime === "Empire" && (ctx.fillStyle = css(col), ctx.beginPath(), ctx.ellipse(0, top + 6, fw - 4, 6, 0, Math.PI, 0), ctx.fill());
+      return;
+    }
+    if (regime === "Dictature" && era >= 4) {
+      ctx.fillStyle = "rgb(60,66,58)", ctx.beginPath(), ctx.ellipse(0, -fh + 2, fw + 4, 9, 0, Math.PI, 0), ctx.fill(), ctx.fillStyle = "rgb(30,30,30)", ctx.beginPath(), ctx.ellipse(2, -fh + 3, fw + 2, 3, 0, 0, Math.PI), ctx.fill(), ctx.fillStyle = gold, ctx.beginPath(), ctx.arc(0, -fh - 3, 2.3, 0, Math.PI * 2), ctx.fill();
+      return;
+    }
+    era === 3 && !hered && !L.female && (ctx.fillStyle = "rgb(40,30,40)", ctx.beginPath(), ctx.ellipse(-3, -fh + 1, fw + 3, 7, -0.15, Math.PI, 0), ctx.fill());
+  }
+  function drawClothes(ctx, era, regime, col, L, F) {
+    let c = css(col), cd = css(shadeC(col, 0.6)), hered = ["Royaume", "Empire", "Chefferie"].includes(regime);
+    ctx.lineWidth = 0.8, ctx.strokeStyle = "rgba(30,20,15,0.6)";
+    let body = () => {
+      ctx.beginPath(), ctx.moveTo(8, 125), ctx.bezierCurveTo(10, 95, 24, 88, 50, 86), ctx.bezierCurveTo(76, 88, 90, 95, 92, 125), ctx.closePath();
+    };
+    if (era <= 1) {
+      if (body(), ctx.fillStyle = regime === "Chefferie" ? "rgb(150,110,70)" : "rgb(238,230,214)", ctx.fill(), ctx.stroke(), ctx.fillStyle = regime === "Empire" || hered ? "rgb(120,40,90)" : c, ctx.beginPath(), ctx.moveTo(22, 92), ctx.lineTo(34, 88), ctx.lineTo(78, 125), ctx.lineTo(60, 125), ctx.closePath(), ctx.fill(), regime === "Chefferie") {
+        ctx.fillStyle = "rgb(240,230,200)";
+        for (let k = 0; k < 7; k++)
+          ctx.beginPath(), ctx.ellipse(36 + k * 4.5, 92 + Math.sin(k / 6 * Math.PI) * 5, 1.2, 3, 0, 0, Math.PI * 2), ctx.fill();
+      }
+      ctx.fillStyle = "rgb(222,180,70)", ctx.beginPath(), ctx.arc(30, 92, 2.5, 0, Math.PI * 2), ctx.fill();
+      return;
+    }
+    if (era === 2) {
+      if (body(), ctx.fillStyle = c, ctx.fill(), ctx.stroke(), hered) {
+        ctx.fillStyle = "rgb(246,244,236)", ctx.beginPath(), ctx.moveTo(10, 125), ctx.bezierCurveTo(14, 96, 30, 90, 40, 89), ctx.lineTo(44, 125), ctx.closePath(), ctx.fill(), ctx.beginPath(), ctx.moveTo(90, 125), ctx.bezierCurveTo(86, 96, 70, 90, 60, 89), ctx.lineTo(56, 125), ctx.closePath(), ctx.fill(), ctx.fillStyle = "rgb(20,20,20)";
+        for (let k = 0; k < 10; k++)
+          ctx.fillRect(14 + k % 3 * 9 + (k > 4 ? 58 : 0), 100 + Math.floor(k / 3) * 7, 1.4, 3);
+      }
+      ctx.fillStyle = "rgb(222,180,70)", ctx.beginPath(), ctx.moveTo(40, 90), ctx.quadraticCurveTo(50, 104, 60, 90), ctx.lineWidth = 1.5, ctx.strokeStyle = "rgb(222,180,70)", ctx.stroke();
+      return;
+    }
+    if (era === 3) {
+      body(), ctx.fillStyle = cd, ctx.fill(), ctx.stroke(), ctx.fillStyle = c, ctx.fillRect(42, 90, 16, 35), ctx.fillStyle = "rgb(250,248,240)", ctx.strokeStyle = "rgba(120,110,100,0.7)";
+      for (let k = 0; k < 14; k++) {
+        let a = Math.PI * 0.05 + k / 13 * Math.PI * 0.9;
+        ctx.beginPath(), ctx.ellipse(50 + Math.cos(a) * 15, 86 + Math.sin(a) * 4 - 2, 3, 5, a, 0, Math.PI * 2), ctx.fill(), ctx.stroke();
+      }
+      return;
+    }
+    if (era === 4 || regime === "Dictature") {
+      let military = hered || regime === "Dictature" || regime === "Empire";
+      if (body(), ctx.fillStyle = military ? "rgb(40,50,80)" : "rgb(35,32,30)", ctx.fill(), ctx.stroke(), regime === "Dictature" && era >= 5 && (ctx.fillStyle = "rgb(66,72,60)", body(), ctx.fill()), ctx.fillStyle = "rgb(245,242,235)", ctx.beginPath(), ctx.moveTo(43, 87), ctx.lineTo(50, 104), ctx.lineTo(57, 87), ctx.closePath(), ctx.fill(), military) {
+        ctx.fillStyle = "rgb(222,180,70)";
+        for (let sx of [1, -1])
+          ctx.beginPath(), ctx.ellipse(50 + sx * 30, 94, 9, 3.5, sx * 0.25, 0, Math.PI * 2), ctx.fill();
+        for (let k = 0; k < 4; k++)
+          ctx.beginPath(), ctx.arc(50, 108 + k * 5, 1.2, 0, Math.PI * 2), ctx.fill();
+        ctx.fillStyle = c, ctx.beginPath(), ctx.moveTo(30, 95), ctx.lineTo(70, 122), ctx.lineTo(66, 125), ctx.lineTo(26, 98), ctx.closePath(), ctx.fill(), ctx.fillStyle = "rgb(200,60,50)", ctx.fillRect(62, 104, 4, 6), ctx.fillStyle = "rgb(222,180,70)", ctx.beginPath(), ctx.arc(64, 112, 2, 0, Math.PI * 2), ctx.fill();
+      } else
+        ctx.fillStyle = "rgb(30,28,28)", ctx.beginPath(), ctx.moveTo(46, 90), ctx.lineTo(54, 90), ctx.lineTo(52, 95), ctx.lineTo(48, 95), ctx.closePath(), ctx.fill();
+      return;
+    }
+    if (body(), ctx.fillStyle = L.female ? css(shadeC(col, 0.5)) : "rgb(46,50,62)", ctx.fill(), ctx.stroke(), ctx.fillStyle = "rgb(246,246,246)", ctx.beginPath(), ctx.moveTo(42, 87), ctx.lineTo(50, 108), ctx.lineTo(58, 87), ctx.closePath(), ctx.fill(), !L.female)
+      ctx.fillStyle = c, ctx.beginPath(), ctx.moveTo(48.5, 90), ctx.lineTo(51.5, 90), ctx.lineTo(53, 110), ctx.lineTo(50, 114), ctx.lineTo(47, 110), ctx.closePath(), ctx.fill();
+    else {
+      ctx.fillStyle = "rgb(240,240,240)";
+      for (let k = 0; k < 7; k++)
+        ctx.beginPath(), ctx.arc(40 + k * 3.3, 89 + Math.sin(k / 6 * Math.PI) * 4, 1.3, 0, Math.PI * 2), ctx.fill();
+    }
+    ctx.fillStyle = c, ctx.beginPath(), ctx.arc(32, 100, 1.8, 0, Math.PI * 2), ctx.fill();
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/gazette.js
+  var esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  function masthead(n, capital, era) {
+    let cap2 = capital.name;
+    return [
+      `Annales de ${n.name}`,
+      `Tablettes de ${cap2}`,
+      `Chronique du royaume de ${n.name}`,
+      `La Gazette de ${cap2}`,
+      `Le Petit ${cap2}ois`,
+      `${cap2} Matin`
+    ][era];
+  }
+  var STYLE = ["antique", "antique", "manuscrit", "gazette", "journal", "moderne"], ADS = [
+    ["Amphores de premier choix", "chez Ma\xEEtre {n}, pr\xE8s du forum."],
+    ["Bains publics r\xE9nov\xE9s", "eau chaude tous les jours de march\xE9."],
+    ["Reliques authentiques", "certifi\xE9es par l'abbaye de {c}."],
+    ["Imprimerie {n} & fils", "almanachs, bibles et pamphlets."],
+    ["Pilules du Docteur {n}", "contre la fatigue et la m\xE9lancolie."],
+    ["Le nouveau t\xE9l\xE9viseur {n}", "l'Histoire en direct dans votre salon."]
+  ];
+  function buildIssue(world2, nid, year) {
+    let n = world2.nations[nid], capital = world2.cities[n.capital], evs = world2.events.filter((e) => e.y === year || e.y === year - 1 && e.m >= 11), score = (e) => e.w * (e.nations.includes(nid) ? 2.2 : 1) * (e.type === "election" && !e.nations.includes(nid) ? 0.2 : 1) * (e.type === "famine" && !e.nations.includes(nid) ? 0.3 : 1), sorted = [...evs].sort((a, b) => score(b) - score(a)), mine = sorted.filter((e) => e.nations.includes(nid)), world_ = sorted.filter((e) => !e.nations.includes(nid) && e.w >= 5).slice(0, 4), head = sorted[0];
+    return {
+      year,
+      nid,
+      era: n.era,
+      name: masthead(n, capital, n.era),
+      style: STYLE[n.era],
+      head: head ? { title: head.title || head.text, body: head.body || head.text, type: head.type, nations: head.nations } : { title: `Une ann\xE9e paisible en ${n.name}`, body: `Rien de notable ne vient troubler la qui\xE9tude de ${capital.name}. Les r\xE9coltes sont rentr\xE9es, les march\xE9s sont calmes.` },
+      local: mine.filter((e) => e !== head).slice(0, 5).map((e) => ({ title: e.title || null, text: e.body || e.text })),
+      world: world_.filter((e) => e !== head).map((e) => ({ title: e.title || null, text: e.text })),
+      obit: evs.find((e) => e.type === "mort" && e.nations[0] === nid)?.obit || null,
+      stats: {
+        pop: Math.round(world2.citiesOf(n).reduce((s, c) => s + c.pop, 0)),
+        treasury: Math.round(n.treasury),
+        stability: Math.round(n.stability * 100),
+        prices: GOODS.map((g, k) => [g.name, capital.price[k]]),
+        currency: ERAS[n.era].currency
+      },
+      leader: { L: JSON.parse(JSON.stringify(n.leader)), title: world2.leaderTitle(n), full: world2.leaderFull(n), color: n.color, era: n.era, regime: n.regime, culture: n.culture, mood: (n.stability - 0.5) * 2 },
+      ad: ADS[n.era],
+      adName: world2.cities[((year * 7 + nid) % world2.cities.length + world2.cities.length) % world2.cities.length].name,
+      nationName: n.name,
+      capital: capital.name,
+      issueNo: year - n.founded + 1
+    };
+  }
+  function renderIssue(issue) {
+    let L = issue.leader, dateLine = `${issue.era <= 1 ? "An" : "Ann\xE9e"} ${fmtYear(issue.year)} \u2014 ${issue.era <= 2 ? `Rouleau n\xB0 ${issue.issueNo}` : `N\xB0 ${issue.issueNo}`} \u2014 ${issue.era <= 2 ? `Lu sur la place de ${esc(issue.capital)}` : `Prix : 1 ${issue.stats.currency.replace(/s$/, "")}`}`, drop = (t) => issue.era === 2 ? `<span class="drop">${esc(t[0])}</span>${esc(t.slice(1))}` : esc(t), art = (a) => `<article>${a.title ? `<h4>${esc(a.title)}</h4>` : ""}<p>${esc(a.text)}</p></article>`, prices = issue.stats.prices.map(([g, p]) => `<tr><td>${esc(g)}</td><td>${p.toFixed(2)}</td></tr>`).join(""), ad = issue.ad ? `<div class="ad"><b>${esc(issue.ad[0].replace("{n}", issue.adName))}</b><br>${esc(issue.ad[1].replace("{n}", issue.adName).replace("{c}", issue.adName))}</div>` : "";
+    return `
+  <div class="paper ${issue.style}">
+    <div class="mast">${esc(issue.name)}</div>
+    <div class="dateline">${dateLine}</div>
+    <h2 class="headline">${esc(issue.head.title)}</h2>
+    <div class="lead">
+      <figure><canvas class="engraving" width="200" height="250"></canvas><figcaption>${esc(L.title)} ${esc(L.full)}</figcaption></figure>
+      <p class="leadtext">${drop(issue.head.body)}</p>
+    </div>
+    <div class="cols">
+      <section><h3>${issue.era <= 1 ? "Faits du royaume" : "Nouvelles du pays"}</h3>${issue.local.length ? issue.local.map(art).join("") : "<p><i>Rien \xE0 signaler.</i></p>"}</section>
+      <section><h3>${issue.era <= 1 ? "Rumeurs des terres lointaines" : "\xC9chos du monde"}</h3>${issue.world.length ? issue.world.map(art).join("") : "<p><i>Les routes sont silencieuses.</i></p>"}</section>
+      <section class="side">
+        <h3>March\xE9 de ${esc(issue.capital)}</h3>
+        <table class="prices"><tr><th>Denr\xE9e</th><th>${esc(issue.stats.currency)}</th></tr>${prices}</table>
+        <h3>Le royaume en chiffres</h3>
+        <p>Population : <b>${issue.stats.pop.toLocaleString("fr")}</b><br>Tr\xE9sor : <b>${issue.stats.treasury.toLocaleString("fr")}</b> ${esc(issue.stats.currency)}<br>Concorde : <b>${issue.stats.stability} %</b></p>
+        ${issue.obit ? `<div class="obit"><h3>N\xE9crologie</h3><p>${esc(issue.obit.title)} ${esc(issue.obit.name)}, ${issue.obit.age} ans, apr\xE8s ${issue.obit.reign} ann\xE9es de r\xE8gne.</p></div>` : ""}
+        ${ad}
+      </section>
+    </div>
+  </div>`;
+  }
+  function paintEngraving(root, issue) {
+    let cv = root.querySelector("canvas.engraving");
+    if (!cv) return;
+    let ctx = cv.getContext("2d"), L = issue.leader;
+    drawPortrait(ctx, L.L, features(L.L, L.culture), { nationColor: L.color, era: L.era, regime: L.regime, mood: L.mood, sepia: !0 }, 0.3, cv.width, cv.height);
+  }
+
+  // ../../../../../home/user/https-rayonday776-sketch.github.io-game-/js/main.js
+  var $ = (id) => document.getElementById(id), esc2 = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]), fmt = (n) => Math.round(n).toLocaleString("fr"), DAYS_PER_SEC = [0, 15, 60, 240, 720], world, renderer, ui = { selCity: null, selNation: null, speed: 0, mode: "pick", lastUi: 0, featCache: /* @__PURE__ */ new Map(), lastYear: null };
+  function seedFromUrl() {
+    return +new URLSearchParams(location.search).get("seed") || Math.floor(Math.random() * 1e6);
+  }
+  function newWorld(seed) {
+    $("introMsg").textContent = "G\xE9n\xE9ration du continent\u2026", $("intro").hidden = !1, setTimeout(() => {
+      world = new World(seed), $("seed").value = seed, renderer ? renderer.setWorld(world) : renderer = new Renderer($("map"), world), ui.selCity = null, ui.selNation = null, ui.mode = "pick", ui.lastYear = world.year, setSpeed(0), $("left").hidden = !0, $("right").hidden = !0, $("ticker").innerHTML = "", $("introMsg").innerHTML = `<b>${world.nations.length} peuples</b> s'\xE9veillent en ${fmtYear(world.year)}.<br>Cliquez sur une nation pour la gouverner.`;
+      try {
+        history.replaceState(null, "", `?seed=${seed}`);
+      } catch {
+      }
+    }, 30);
+  }
+  function choosePlayer(nid) {
+    world.player = nid, ui.mode = "play", $("intro").hidden = !0, $("left").hidden = !1;
+    let n = world.nations[nid];
+    toast(`Vous gouvernez ${n.name}. Que votre r\xE8gne soit long !`), setSpeed(1), refreshUi(!0);
+  }
+  function setSpeed(s) {
+    ui.speed = s;
+    for (let b of document.querySelectorAll("#speeds button")) b.classList.toggle("on", +b.dataset.s === s);
+  }
+  function toast(msg, ms = 3500) {
+    let t = $("toast");
+    t.textContent = msg, t.hidden = !1, clearTimeout(t._h), t._h = setTimeout(() => {
+      t.hidden = !0;
+    }, ms);
+  }
+  function feats(n) {
+    let key = n.leader.seed;
+    return ui.featCache.has(key) || ui.featCache.set(key, features(n.leader, n.culture)), ui.featCache.get(key);
+  }
+  function leaderHtml(n) {
+    let L = n.leader;
+    return `<h2>${esc2(world.leaderTitle(n))} ${esc2(world.leaderFull(n))}</h2>
+    <div class="sub">${REG(n)} \xB7 ${L.age} ans \xB7 ${L.party ? `parti ${esc2(L.party)}` : `maison ${esc2(L.dynasty)}`} \xB7 depuis ${fmtYear(L.since)}</div>
+    <div class="traits">${L.traits.map((t) => `<span>${TRAITS[t]}</span>`).join("")}</div>`;
+  }
+  var REG = (n) => `${n.regime} de ${esc2(n.name)}`;
+  function nationHtml(n, mine) {
+    let cs = world.citiesOf(n), pop = cs.reduce((s, c) => s + c.pop, 0), cur = ERAS[n.era].currency, wars = world.warsOf(n.id).map((w) => world.nations[w.a === n.id ? w.b : w.a].name), nextEra = ERAS[n.era + 1], h = `<h3>${esc2(n.name)}</h3><div class="kv">
+    <span>\xC8re</span><span>${ERAS[n.era].name}${nextEra ? ` <small>(${Math.round((n.tech - ERAS[n.era].tech) / (nextEra.tech - ERAS[n.era].tech) * 100)} % \u2192 ${nextEra.name})</small>` : ""}</span>
+    <span>Population</span><span>${fmt(pop)}</span>
+    <span>Villes</span><span>${cs.length}</span>
+    <span>Tr\xE9sor</span><span>${fmt(n.treasury)} ${cur} <small class="${n.income - n.expense >= 0 ? "up" : "down"}">(${n.income - n.expense >= 0 ? "+" : ""}${(n.income - n.expense).toFixed(1)}/mois)</small></span>
+    <span>Arm\xE9e</span><span>${fmt(n.army * 10)} hommes</span>
+    <span>Guerres</span><span>${wars.length ? wars.map(esc2).join(", ") : "aucune"}</span>
+  </div>
+  <div class="small">Concorde ${Math.round(n.stability * 100)} %</div><div class="bar"><i style="width:${n.stability * 100}%;background:${n.stability < 0.3 ? "#8e2a1c" : "#5a4630"}"></i></div>
+  <div class="small">L\xE9gitimit\xE9 ${Math.round(n.legitimacy * 100)} %</div><div class="bar"><i style="width:${n.legitimacy * 100}%"></i></div>
+  <h3>Forces politiques</h3>
+  ${[...n.parties].sort((a, b) => b.support - a.support).map((p) => `<div class="party"><span>${esc2(p.name)}</span><span>${Math.round(p.support * 100)} %</span><div class="bar"><i style="width:${p.support * 100}%"></i></div></div>`).join("")}`;
+    if (mine) {
+      let cc = world.colonyCost(n);
+      h += `<h3>Gouvernement</h3>
+    <div class="small">Imp\xF4ts : <b id="taxv">${Math.round(n.tax * 100)} %</b></div>
+    <input type="range" id="tax" min="0" max="40" value="${Math.round(n.tax * 100)}">
+    <div class="actions">
+      <button class="btn" data-act="colony" ${n.treasury < cc ? "disabled" : ""}>Fonder une colonie (${cc})</button>
+      <button class="btn" data-act="capital">Voir la capitale</button>
+      <button class="btn" data-act="auto">${n.auto ? "\u2714 " : ""}Conseil automatique</button>
+    </div>`;
+    }
+    return h;
+  }
+  function cityHtml(c) {
+    let n = world.nations[c.nation], mine = c.nation === world.player, cur = ERAS[n.era].currency, bl = Object.keys(BUILDINGS).map((k) => {
+      let b = BUILDINGS[k], nm = k === "temple" ? TEMPLE_NAMES[n.era] : b.name;
+      if (c.buildings[k]) return `<li>\u2714 ${nm} <small>(${fmtYear(c.buildings[k])})</small></li>`;
+      if (!mine) return "";
+      let why = world.canBuild(c, k);
+      return why && why.startsWith("requiert") || why === "ville non c\xF4ti\xE8re" ? "" : `<li><button class="btn" data-build="${k}" ${why ? "disabled" : ""} title="${esc2(b.desc)}">${nm} \u2014 ${b.cost(c)} ${cur}</button></li>`;
+    }).join(""), goods = GOODS.map((g, k) => `<tr><td>${g.name}</td><td>${c.stock[k].toFixed(1)}</td><td class="${c.price[k] > g.base * 1.2 ? "down" : c.price[k] < g.base * 0.8 ? "up" : ""}">${c.price[k].toFixed(2)}</td></tr>`).join(""), roads = [...world.adj.get(c.id) || []].map((o) => esc2(world.cities[o].name)).join(", "), isCap = n.capital === c.id;
+    return `<h2>${isCap ? "\u265B " : ""}${esc2(c.name)}</h2>
+    <div class="sub">${isCap ? "Capitale" : "Ville"} de ${esc2(n.name)} \xB7 fond\xE9e en ${fmtYear(c.founded)}</div>
+    <div class="kv">
+      <span>Population</span><span>${fmt(c.pop)} <small>(capacit\xE9 ${fmt(c.K)})</small></span>
+      <span>Site</span><span>${[c.coastal && "c\xF4tier", c.river && "fluvial"].filter(Boolean).join(", ") || "int\xE9rieur"}</span>
+      <span>Commerce</span><span>${c.tradeEMA.toFixed(2)} ${cur}/mois</span>
+      <span>Routes</span><span>${roads || "aucune"}</span>
+      ${c.shortage > 0.05 ? `<span>Famine</span><span class="down">${Math.round(c.shortage * 100)} %</span>` : ""}
+    </div>
+    <h3>\xC9difices</h3><ul style="list-style:none;padding:0;margin:0">${bl || "<li><i>aucun</i></li>"}</ul>
+    <h3>March\xE9</h3><table class="goods"><tr><th>Denr\xE9e</th><th>Stock</th><th>Prix</th></tr>${goods}</table>
+    <div class="actions">
+      <button class="btn" data-act="zoomcity">\u{1F50D} Visiter la ville</button>
+      ${mine ? '<button class="btn" data-act="road">Tracer une route\u2026</button>' : ""}
+    </div>
+    ${!mine && world.player >= 0 ? diploHtml(n) : ""}`;
+  }
+  function diploHtml(n) {
+    let me = world.nations[world.player], rel = Math.round(me.rel[n.id] ?? 0), war = world.atWar(me.id, n.id), pact = me.pacts?.has(n.id);
+    return `<h3>Diplomatie avec ${esc2(n.name)}</h3>
+    <div class="kv"><span>Dirigeant</span><span>${esc2(world.leaderTitle(n))} ${esc2(world.leaderFull(n))}</span><span>R\xE9gime</span><span>${n.regime}</span><span>Relations</span><span class="${rel < 0 ? "down" : "up"}">${rel > 0 ? "+" : ""}${rel}</span><span>Arm\xE9e</span><span>${fmt(n.army * 10)}</span></div>
+    <div class="actions">
+      ${war ? `<button class="btn" data-dip="peace" data-n="${n.id}">Proposer la paix</button>` : `<button class="btn danger" data-dip="war" data-n="${n.id}">D\xE9clarer la guerre</button>`}
+      ${!war && !pact ? `<button class="btn" data-dip="pact" data-n="${n.id}">Trait\xE9 de commerce</button>` : ""}
+      ${pact ? '<span class="small">\u2714 Trait\xE9 de commerce</span>' : ""}
+    </div>`;
+  }
+  function showRight(html) {
+    $("rightBody").innerHTML = html, $("right").hidden = !1;
+  }
+  function refreshUi(force) {
+    if (!world) return;
+    $("date").textContent = world.dateStr();
+    let me = world.nations[world.player];
+    if ($("era").textContent = me ? `${ERAS[me.era].name}` : "Choisissez une nation", me) {
+      let cur = ERAS[me.era].currency;
+      $("stats").innerHTML = `<span style="color:rgb(${me.color})">\u25A0</span> <b>${esc2(me.name)}</b><span>\u{1F4B0} ${fmt(me.treasury)} ${cur}</span><span>\u{1F465} ${fmt(me.pop || 0)}</span><span>\u2696 ${Math.round(me.stability * 100)} %</span>`, $("leader").innerHTML = leaderHtml(me), (force || !document.activeElement || document.activeElement.id !== "tax") && ($("nation").innerHTML = nationHtml(me, !0));
+    }
+    if (!$("right").hidden) {
+      if (ui.selCity != null) showRight(cityHtml(world.cities[ui.selCity]));
+      else if (ui.selNation != null) {
+        let n = world.nations[ui.selNation];
+        showRight(`<h2>${esc2(n.name)}</h2>${leaderHtml(n)}${nationHtml(n, !1)}${world.player >= 0 && n.id !== world.player ? diploHtml(n) : ""}`);
+      }
+    }
+    let evs = world.events.slice(-6).reverse();
+    $("ticker").innerHTML = evs.map((e) => `<div class="${e.nations.includes(world.player) ? "mine" : ""}"><span class="y">${fmtYear(e.y)}</span>${esc2(e.text)}</div>`).join("");
+  }
+  function openGazette(i) {
+    if (!world.gazettes.length) {
+      toast("Aucune \xE9dition pour l'instant : la premi\xE8re para\xEEtra en janvier.");
+      return;
+    }
+    let list = $("gzList");
+    list.innerHTML = world.gazettes.map((g, k2) => `<option value="${k2}">${esc2(g.name)} \u2014 ${fmtYear(g.year)}</option>`).join("");
+    let k = i ?? world.gazettes.length - 1;
+    list.value = k;
+    let issue = world.gazettes[k];
+    $("gzBody").innerHTML = renderIssue(issue), paintEngraving($("gzBody"), issue), $("gazette").hidden = !1, $("btnGazette").classList.remove("flash");
+  }
+  var last = performance.now(), acc = 0, t0 = performance.now();
+  function frame(now) {
+    let dt = Math.min(0.25, (now - last) / 1e3);
+    if (last = now, world) {
+      if (ui.speed > 0 && ui.mode === "play" && $("gazette").hidden) {
+        acc += dt * DAYS_PER_SEC[ui.speed];
+        let steps = 0;
+        for (; acc >= 1 && steps < 1e3; )
+          world.stepDay(), acc -= 1, steps++;
+        handleNewEvents(), world.year !== ui.lastYear && newYear();
+      }
+      renderer.draw(ui);
+      let me = world.nations[world.player];
+      if (me && !$("left").hidden) {
+        let cv = $("portrait"), ctx = cv.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0), ctx.clearRect(0, 0, cv.width, cv.height), drawPortrait(ctx, me.leader, feats(me), { nationColor: me.color, era: me.era, regime: me.regime, mood: (me.stability - 0.5) * 2 }, (now - t0) / 1e3, cv.width, cv.height);
+      }
+      now - ui.lastUi > 300 && (ui.lastUi = now, refreshUi());
+    }
+    requestAnimationFrame(frame);
+  }
+  function handleNewEvents() {
+    let evs = world.newEvents.splice(0);
+    for (let e of evs)
+      world.player >= 0 && e.nations.includes(world.player) && e.w >= 9 && (setSpeed(0), toast(e.title || e.text, 6e3));
+  }
+  function newYear() {
+    let prev = ui.lastYear;
+    if (ui.lastYear = world.year, world.player < 0 || !world.nations[world.player].alive) return;
+    let issue = buildIssue(world, world.player, prev);
+    world.gazettes.push(issue), world.gazettes.length > 200 && world.gazettes.shift(), $("gzAuto").checked && ui.speed <= 2 ? openGazette() : $("btnGazette").classList.add("flash");
+  }
+  function pickAt(sx, sy) {
+    let [wx, wy] = renderer.toWorld(sx, sy), best = null, bd = 1 / 0;
+    for (let c of world.cities) {
+      if (!c.alive) continue;
+      let d = Math.hypot(c.x + 0.5 - wx, c.y + 0.5 - wy) * renderer.cam.scale, r = Math.max(12, cityRadius(c.pop) * renderer.cam.scale);
+      d < r && d < bd && (bd = d, best = c);
+    }
+    let ix = Math.floor(wx), iy = Math.floor(wy), cell = ix >= 0 && iy >= 0 && ix < world.W && iy < world.H ? iy * world.W + ix : -1;
+    return { city: best, cell, nation: cell >= 0 ? world.cellNation[cell] : -1 };
+  }
+  function onClick(sx, sy) {
+    let p = pickAt(sx, sy);
+    if (ui.mode === "pick") {
+      let nid = p.city ? p.city.nation : p.nation;
+      nid >= 0 && choosePlayer(nid);
+      return;
+    }
+    if (ui.mode === "road") {
+      if (ui.mode = "play", $("map").style.cursor = "", p.city && ui.roadFrom != null) {
+        let a = world.cities[ui.roadFrom], b = p.city, me = world.nations[world.player], cost = Math.round(20 + world.dist(a, b) * 4);
+        if (me.treasury < cost) {
+          toast(`Il faut ${cost} pour cette route.`);
+          return;
+        }
+        if (world.atWar(me.id, b.nation)) {
+          toast("Impossible : vous \xEAtes en guerre avec ce pays.");
+          return;
+        }
+        world.buildRoad(a, b, !1) ? (me.treasury -= cost, toast(`Route ${a.name} \u2013 ${b.name} construite (${cost}).`)) : toast("Aucun trac\xE9 possible (d\xE9j\xE0 reli\xE9es, mer ou trop loin)."), refreshUi(!0);
+      }
+      return;
+    }
+    p.city ? (ui.selCity = p.city.id, ui.selNation = null, $("right").hidden = !1, refreshUi(!0)) : p.nation >= 0 ? (ui.selCity = null, ui.selNation = p.nation, $("right").hidden = !1, refreshUi(!0)) : (ui.selCity = null, ui.selNation = null, $("right").hidden = !0);
+  }
+  function flyTo(x, y, scale) {
+    let c = renderer.cam, sx = c.x, sy = c.y, ss = c.scale, t02 = performance.now(), step = (now) => {
+      let t = Math.min(1, (now - t02) / 700), e = t * t * (3 - 2 * t);
+      c.x = sx + (x - sx) * e, c.y = sy + (y - sy) * e, c.scale = Math.exp(Math.log(ss) + (Math.log(scale) - Math.log(ss)) * e), t < 1 && requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function setupInput() {
+    let cv = $("map"), ptrs = /* @__PURE__ */ new Map(), drag = null, pinch = null, moved = !1;
+    cv.addEventListener("pointerdown", (e) => {
+      if (cv.setPointerCapture(e.pointerId), ptrs.set(e.pointerId, [e.clientX, e.clientY]), moved = !1, ptrs.size === 1 && (drag = { x: e.clientX, y: e.clientY }), ptrs.size === 2) {
+        let [a, b] = [...ptrs.values()];
+        pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) }, drag = null;
+      }
+    }), cv.addEventListener("pointermove", (e) => {
+      if (ptrs.has(e.pointerId) && ptrs.set(e.pointerId, [e.clientX, e.clientY]), pinch && ptrs.size === 2) {
+        let [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        renderer.zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, d / pinch.d), pinch.d = d, moved = !0;
+        return;
+      }
+      if (drag) {
+        let dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        Math.abs(dx) + Math.abs(dy) > 3 && (moved = !0, cv.classList.add("drag")), renderer.cam.x -= dx / renderer.cam.scale, renderer.cam.y -= dy / renderer.cam.scale, drag = { x: e.clientX, y: e.clientY }, $("tooltip").hidden = !0;
+        return;
+      }
+      world && e.pointerType === "mouse" && hover(e.clientX, e.clientY);
+    });
+    let up = (e) => {
+      ptrs.delete(e.pointerId), ptrs.size < 2 && (pinch = null), ptrs.size === 0 && (drag && !moved && world && onClick(e.clientX, e.clientY), drag = null, cv.classList.remove("drag"));
+    };
+    cv.addEventListener("pointerup", up), cv.addEventListener("pointercancel", up), cv.addEventListener("pointerleave", () => {
+      $("tooltip").hidden = !0;
+    }), cv.addEventListener("wheel", (e) => {
+      e.preventDefault(), renderer.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 15e-4));
+    }, { passive: !1 }), window.addEventListener("keydown", (e) => {
+      e.target.tagName !== "INPUT" && (e.code === "Space" ? (e.preventDefault(), setSpeed(ui.speed ? 0 : 1)) : /^Digit[0-4]$/.test(e.code) ? setSpeed(+e.code.slice(5)) : e.key === "+" || e.key === "=" ? renderer.zoomAt(innerWidth / 2, innerHeight / 2, 1.4) : e.key === "-" ? renderer.zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.4) : e.key === "Escape" && ($("gazette").hidden = !0, $("right").hidden = !0, ui.selCity = null));
+    }), $("speeds").addEventListener("click", (e) => {
+      let b = e.target.closest("button");
+      b && setSpeed(+b.dataset.s);
+    }), $("btnGazette").onclick = () => openGazette(), $("gzClose").onclick = () => {
+      $("gazette").hidden = !0;
+    }, $("gzList").onchange = (e) => openGazette(+e.target.value), $("btnNew").onclick = () => newWorld(Math.floor(Math.random() * 1e6)), $("regen").onclick = () => newWorld(+$("seed").value || Math.floor(Math.random() * 1e6)), $("closeRight").onclick = () => {
+      $("right").hidden = !0, ui.selCity = null, ui.selNation = null;
+    }, document.body.addEventListener("input", (e) => {
+      if (e.target.id === "tax") {
+        let n = world.nations[world.player];
+        n.tax = +e.target.value / 100, $("taxv").textContent = `${e.target.value} %`;
+      }
+    }), document.body.addEventListener("click", (e) => {
+      let b = e.target.closest("button");
+      if (!b || !world) return;
+      let me = world.nations[world.player];
+      if (b.dataset.build) {
+        let c = world.cities[ui.selCity], err = world.build(c, b.dataset.build);
+        toast(err ? `Impossible : ${err}` : `Chantier lanc\xE9 \xE0 ${c.name}.`), refreshUi(!0);
+      } else if (b.dataset.act === "colony") {
+        let r = world.foundColony(me);
+        typeof r == "string" ? toast(`Impossible : ${r}`) : (toast(`Fondation de ${r.name} !`), ui.selCity = r.id, $("right").hidden = !1, flyTo(r.x + 0.5, r.y + 0.5, Math.max(renderer.cam.scale, 14))), refreshUi(!0);
+      } else if (b.dataset.act === "capital") {
+        let c = world.cities[me.capital];
+        ui.selCity = c.id, $("right").hidden = !1, flyTo(c.x + 0.5, c.y + 0.5, 50), refreshUi(!0);
+      } else if (b.dataset.act === "auto")
+        me.auto = !me.auto, toast(me.auto ? "Le conseil gouverne en votre nom (constructions, colonies, diplomatie)." : "Vous reprenez les r\xEAnes."), refreshUi(!0);
+      else if (b.dataset.act === "zoomcity") {
+        let c = world.cities[ui.selCity];
+        flyTo(c.x + 0.5, c.y + 0.5, Math.max(60, 260 / cityRadius(c.pop)));
+      } else if (b.dataset.act === "road")
+        ui.mode = "road", ui.roadFrom = ui.selCity, $("map").style.cursor = "crosshair", toast("Cliquez la ville de destination.");
+      else if (b.dataset.dip) {
+        let nid = +b.dataset.n;
+        b.dataset.dip === "war" ? confirm(`D\xE9clarer la guerre \xE0 ${world.nations[nid].name} ?`) && world.declareWar(world.player, nid) : b.dataset.dip === "peace" ? toast(world.offerPeace(world.player, nid) ? "La paix est sign\xE9e." : "Votre offre de paix est rejet\xE9e.") : b.dataset.dip === "pact" && toast(world.proposePact(world.player, nid) ? "Trait\xE9 de commerce sign\xE9." : "Ils refusent : relations trop mauvaises."), refreshUi(!0);
+      }
+    });
+  }
+  function hover(sx, sy) {
+    let p = pickAt(sx, sy), tt = $("tooltip");
+    if (p.cell < 0) {
+      tt.hidden = !0;
+      return;
+    }
+    let parts = [];
+    p.city && parts.push(`<b>${esc2(p.city.name)}</b> \xB7 ${fmt(p.city.pop)} hab.`), p.nation >= 0 && parts.push(esc2(world.nations[p.nation].name)), parts.push(BIOME_NAMES[world.T.biome[p.cell]] + (world.T.river[p.cell] ? " \xB7 fleuve" : "")), tt.innerHTML = parts.join(" \u2014 "), tt.style.left = `${sx + 14}px`, tt.style.top = `${sy + 12}px`, tt.hidden = !1;
+  }
+  window.addEventListener("resize", () => {
+    renderer && (renderer.minScale = Math.min(innerWidth / world.W, innerHeight / world.H) * 0.8);
+  });
+  setupInput();
+  newWorld(seedFromUrl());
+  requestAnimationFrame(frame);
+  window.__game = { get world() {
+    return world;
+  }, get renderer() {
+    return renderer;
+  }, ui, choosePlayer, setSpeed, openGazette, flyTo };
+})();
+
+</script>
+</body>
+</html>
